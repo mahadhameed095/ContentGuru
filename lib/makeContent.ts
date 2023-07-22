@@ -4,8 +4,8 @@ import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { trimFileExtension } from './utils';
 
-export async function makeContent<T extends ArchetypeTree>
-({ inputDir, schemaTree , build, rootPagesSchema } : Config<T>) : Promise<Output<T>>
+export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
+({ inputDir, schemaTree , build, rootPagesSchema } : Config<T, U>) : Promise<Output<T, U>>
 {
   const structure : any = { 
     path : inputDir,
@@ -31,7 +31,6 @@ export async function makeContent<T extends ArchetypeTree>
     definedFilesInSchema.map(async filename => {
       const fullPath = join(inputDir, filename + '.mdx');
       const data = await build(await readFile(fullPath, 'utf-8'));
-      console.log(data.frontmatter);
       (schemaTree[filename] as ZodTypeAny).parse(data.frontmatter);
       structure[filename] = { ...data, path : fullPath};
     })

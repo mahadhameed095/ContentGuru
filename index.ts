@@ -62,5 +62,7 @@ makeContent({
     description : z.string()
   })
 }).then(Content => {
-  console.log(Content);
+  console.log(
+    Content.blog.pages.map(blogPost => blogPost.frontmatter)
+  )
 });

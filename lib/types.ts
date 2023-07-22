@@ -12,77 +12,52 @@ export type Page<T extends Record<string, any> = any> = {
     path : string;
 } & Content<T>
 
-export type ArchetypeTree<T extends ZodTypeAny = ZodTypeAny> = {
-  pages ?: T;
-  sections ?: ArchetypeTree<T>;
-  [K : string] : T | ArchetypeTree<T> | undefined;
-};
-
 export type Section<T extends Record<string, any>={}> = {
   path : string;
   pages ?: Array<Page<T>>;
   sections ?: Array<Section<T>>
 };
 
-type TransformTree<T extends ArchetypeTree> = {
+export type ContentTree<T extends Record<string, any>={}> = {
+  [k : string] : Page<T> | Section<T>
+} & Section<T>;
+
+
+export type ArchetypeTree<T extends ZodTypeAny = ZodTypeAny> = {
+  pages ?: T;
+  sections ?: ArchetypeTree<T>;
+  [K : string] : T | ArchetypeTree<T> | undefined;
+};
+
+
+type TransformTree<T extends ArchetypeTree, U extends ZodTypeAny> = {
   [K in keyof T] : 
     T[K] extends ZodTypeAny ? 
       K extends 'pages' ? Array<Page<ZodInfer<T[K]>>>
                         : Page<ZodInfer<T[K]>>
-
     : T[K] extends ArchetypeTree ?
-        K extends 'sections' ? Array<TransformTree<T[K]>>
-                             : TransformTree<T[K]>
+        T extends {pages : ZodTypeAny} ?
+          K extends 'sections' ? 
+            Array<TransformTree<T[K], T['pages']>>
+          : TransformTree<T[K], T['pages']>
+        : K extends 'sections' ?
+            Array<TransformTree<T[K], U>>
+          : TransformTree<T[K], U>
     : never
-}
+} & (T extends { sections: ArchetypeTree } ? {} : 
+  { sections: T extends { pages : ZodTypeAny } ? 
+      Array<Section<ZodInfer<T['pages']>>> 
+    : Array<Section<ZodInfer<U>>> 
+  }
+) & (T extends { pages : ZodTypeAny } ? {} :
+  { pages : Array<Page<ZodInfer<U>>> }
+) & { path : string };
 
-// type AddSectionsAndPages<T extends TransformTree<any>, U extends Record<string, any>=any> = {
-//   [K in keyof T] : 'pages' extends keyof T ?
-//                       T[K] extends Record<string, any> ?
-//                         AddSectionsAndPages<T[K], T['pages'][number]>
-//                       : T[K] extends Array<Record<string, any>> ?
-//                         Array<AddSectionsAndPages<T[K], T['pages'][number]>>
-//                       : T[K]
-//                       : T[K] extends Record<string, any> ?
-//                         AddSectionsAndPages<T[K], U>
-//                       : T[K] extends Array<Record<string, any>> ?
-//                         Array<AddSectionsAndPages<T[K], U>>
-//                       : T[K]
-// } & {
-//   path : string;
-//   sections : T extends { sections : any } ? T['sections'] : 
-//               'pages' extends keyof T ?
-//                   Array<Section<T['pages'][number]>>
-//                                       :
-//                   Array<Section<U>>;
-//   pages : T extends { pages : any } ? T['pages'] : Array<Page<U>>;
-// }
+export type Output<T extends ArchetypeTree, U extends ZodTypeAny> = TransformTree<T, U>
 
-export type Output<T extends ArchetypeTree> = TransformTree<T>;
-
-
-export type Config<T> = {
+export type Config<T extends ArchetypeTree, U extends ZodTypeAny> = {
     inputDir : string;
     schemaTree : T;
     build : (source : string) => Promise<Content>
-    rootPagesSchema : ZodTypeAny;
+    rootPagesSchema : U;
 }
-
-
-// export type Section<T extends Record<string, any>={}> = {
-//   path : string;
-//   pages ?: Array<Page<T>>;
-//   sections ?: Array<Section<T>>
-// };
-
-// type TransformTree<T extends ArchetypeTree> = {
-//   [K in keyof T] : 
-//     T[K] extends ZodTypeAny ? 
-//       K extends 'pages' ? Array<Page<ZodInfer<T[K]>>>
-//                         : Page<ZodInfer<T[K]>>
-
-//     : T[K] extends ArchetypeTree ?
-//         K extends 'sections' ? Array<TransformTree<T[K]>>
-//                              : TransformTree<T[K]>
-//     : never
-// }
