@@ -3,6 +3,7 @@ import { ZodObject } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { trimFileExtension } from './utils';
+import { existsSync } from 'fs';
 
 export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
 ({ inputDir, schemaTree , build, rootPagesSchema } : Config<T, U>) : Promise<Output<T, U>>
@@ -30,9 +31,13 @@ export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
   await Promise.all(
     definedFilesInSchema.map(async filename => {
       const fullPath = join(inputDir, filename + '.mdx');
-      const data = await build(await readFile(fullPath, 'utf-8'));
-      (schemaTree[filename] as ZodTypeAny).parse(data.frontmatter);
-      structure[filename] = { ...data, path : fullPath};
+      if(existsSync(fullPath)){
+        const data = await build(await readFile(fullPath, 'utf-8'));
+        (schemaTree[filename] as ZodTypeAny).parse(data.frontmatter);
+        structure[filename] = { ...data, path : fullPath};
+      }else if(!(schemaTree[filename] as ZodTypeAny).isOptional()){ /* if file was required */
+         throw `${fullPath} is not found yet required in schema!`;
+      } /* do nothing if it was optional and not found*/
     })
   );
 

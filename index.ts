@@ -40,7 +40,6 @@ const PagesSchema = {
   }),
 } satisfies ArchetypeTree;
 
-
 async function buildDoc(source : string){
   const {frontmatter, code} = await bundleMDX({
     source,
@@ -62,7 +61,5 @@ makeContent({
     description : z.string()
   })
 }).then(Content => {
-  console.log(
-    Content.blog.pages.map(blogPost => blogPost.frontmatter)
-  )
+
 });

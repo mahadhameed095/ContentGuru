@@ -12,16 +12,11 @@ export type Page<T extends Record<string, any> = any> = {
     path : string;
 } & Content<T>
 
-export type Section<T extends Record<string, any>={}> = {
+export type Section<T extends Record<string, any>=any> = {
   path : string;
   pages ?: Array<Page<T>>;
   sections ?: Array<Section<T>>
 };
-
-export type ContentTree<T extends Record<string, any>={}> = {
-  [k : string] : Page<T> | Section<T>
-} & Section<T>;
-
 
 export type ArchetypeTree<T extends ZodTypeAny = ZodTypeAny> = {
   pages ?: T;
@@ -33,8 +28,11 @@ export type ArchetypeTree<T extends ZodTypeAny = ZodTypeAny> = {
 type TransformTree<T extends ArchetypeTree, U extends ZodTypeAny> = {
   [K in keyof T] : 
     T[K] extends ZodTypeAny ? 
-      K extends 'pages' ? Array<Page<ZodInfer<T[K]>>>
+      K extends 'pages' ? Array<Page<NonNullable<ZodInfer<T[K]>>>>
+                        : undefined extends ZodInfer<T[K]> ? 
+                          Page<NonNullable<ZodInfer<T[K]>>> | undefined
                         : Page<ZodInfer<T[K]>>
+                        
     : T[K] extends ArchetypeTree ?
         T extends {pages : ZodTypeAny} ?
           K extends 'sections' ? 
@@ -44,13 +42,17 @@ type TransformTree<T extends ArchetypeTree, U extends ZodTypeAny> = {
             Array<TransformTree<T[K], U>>
           : TransformTree<T[K], U>
     : never
-} & (T extends { sections: ArchetypeTree } ? {} : 
+} 
+/* If sections is not defined then add sections. when adding sections check if page types is defined. if yes use that or else use inherited page type */
+& (T extends { sections: ArchetypeTree } ? {} : 
   { sections: T extends { pages : ZodTypeAny } ? 
       Array<Section<ZodInfer<T['pages']>>> 
     : Array<Section<ZodInfer<U>>> 
   }
+/* If pages is not defined then add pages of inherited type */
 ) & (T extends { pages : ZodTypeAny } ? {} :
   { pages : Array<Page<ZodInfer<U>>> }
+/* Add path variable */
 ) & { path : string };
 
 export type Output<T extends ArchetypeTree, U extends ZodTypeAny> = TransformTree<T, U>
