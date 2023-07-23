@@ -1,4 +1,4 @@
-import { ZodTypeAny, Output, ArchetypeTree, Page, Config } from './types';
+import { ZodTypeAny, TransformTree, ArchetypeTree, Page, MakeContentProps } from './types';
 import { ZodObject } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
@@ -6,7 +6,7 @@ import { trimFileExtension } from './utils';
 import { existsSync } from 'fs';
 
 export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
-({ inputDir, schemaTree , build, rootPagesSchema } : Config<T, U>) : Promise<Output<T, U>>
+({ inputDir, schemaTree , build, rootPagesSchema } : MakeContentProps<T, U>) : Promise<TransformTree<T, U>>
 {
   const structure : any = { 
     path : inputDir,

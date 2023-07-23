@@ -2,6 +2,7 @@ import { ArchetypeTree } from "./lib/types";
 import z from 'zod';
 import { makeContent } from "./lib/makeContent";
 import { bundleMDX } from "mdx-bundler";
+import { WithTaxonomies } from "./lib/WithTaxonomies";
 
 const PagesSchema = {
   blog : {
@@ -35,9 +36,9 @@ const PagesSchema = {
       })
     },
   },
-  pages : z.object({
-    description: z.string(),
-  }),
+  // pages : z.object({
+  //   description: z.string(),
+  // }),
 } satisfies ArchetypeTree;
 
 async function buildDoc(source : string){
@@ -52,14 +53,20 @@ async function buildDoc(source : string){
   });
   return {frontmatter, code};
 }
+const rootPagesSchema = z.object({
+  description : z.string()
+})
+
+// type P = TransformTree<typeof PagesSchema, typeof rootPagesSchema>;
+// const taxonomies = ["tags", "categories"] as const;
+// type whatever = TaxonomyContent<P, typeof taxonomies>;
+
 
 makeContent({
   inputDir : 'content',
   schemaTree : PagesSchema,
   build : buildDoc,
-  rootPagesSchema : z.object({
-    description : z.string()
-  })
+  rootPagesSchema
 }).then(Content => {
-
+  WithTaxonomies(Content, ["tags", "categories", "authors"] as const)
 });

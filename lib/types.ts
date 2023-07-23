@@ -4,13 +4,13 @@ export type { ZodTypeAny };
 
 type ZodInfer<T extends ZodTypeAny> = z.infer<T>;
 
-export type Content<T extends Record<string, any>=any> = {
+export type PageContent<T extends Record<string, any>=any> = {
     frontmatter : T;
     code : string;
 }
 export type Page<T extends Record<string, any> = any> = {
     path : string;
-} & Content<T>
+} & PageContent<T>
 
 export type Section<T extends Record<string, any>=any> = {
   path : string;
@@ -18,14 +18,17 @@ export type Section<T extends Record<string, any>=any> = {
   sections ?: Array<Section<T>>
 };
 
+export type ContentTree = {
+  [k : string] : Page | Section | undefined;
+} & Section;
+
 export type ArchetypeTree<T extends ZodTypeAny = ZodTypeAny> = {
   pages ?: T;
   sections ?: ArchetypeTree<T>;
   [K : string] : T | ArchetypeTree<T> | undefined;
 };
 
-
-type TransformTree<T extends ArchetypeTree, U extends ZodTypeAny> = {
+export type TransformTree<T extends ArchetypeTree, U extends ZodTypeAny=any> = {
   [K in keyof T] : 
     T[K] extends ZodTypeAny ? 
       K extends 'pages' ? Array<Page<NonNullable<ZodInfer<T[K]>>>>
@@ -55,11 +58,33 @@ type TransformTree<T extends ArchetypeTree, U extends ZodTypeAny> = {
 /* Add path variable */
 ) & { path : string };
 
-export type Output<T extends ArchetypeTree, U extends ZodTypeAny> = TransformTree<T, U>
+type UnionObjectValues<T> = T[keyof T];
 
-export type Config<T extends ArchetypeTree, U extends ZodTypeAny> = {
-    inputDir : string;
-    schemaTree : T;
-    build : (source : string) => Promise<Content>
-    rootPagesSchema : U;
+type _Taxonomize<T extends any, Taxonomy extends string> = {
+  [key in keyof T] : T[key] extends Array<Page<infer U>> ?
+                        Taxonomy extends keyof U ? U : undefined
+                   : T[key] extends Page<infer U> ?
+                        Taxonomy extends keyof U ? U : undefined
+                   : T[key] extends Array<Record<string, any>> ?
+                      UnionObjectValues<_Taxonomize<T[key][number], Taxonomy>>
+                   : T[key] extends Record<string, any> ?
+                      UnionObjectValues<_Taxonomize<T[key], Taxonomy>>
+                   : undefined
+                    
+};
+type Taxonomize<T extends any, Taxonomy extends string> = NonNullable<UnionObjectValues<_Taxonomize<T, Taxonomy>>>;
+
+export type TaxonomyContent<T extends any, U extends readonly string[]> = {
+  [K in U[number]] : { all : string[], pages : Array<Page<Taxonomize<T, K>>>}
 }
+/* Taxonomize<T, K> extends never ? undefined :  */
+
+export type MakeContentProps<T extends ArchetypeTree, U extends ZodTypeAny> = {
+  inputDir : string;
+  schemaTree : T;
+  build : (source : string) => Promise<PageContent>
+  rootPagesSchema : U;
+}
+// export type WithTaxonomiesProps = {
+
+// }
