@@ -1,8 +1,8 @@
 import { ArchetypeTree } from "./lib/types";
 import z from 'zod';
 import { makeContent } from "./lib/makeContent";
-import { bundleMDX } from "mdx-bundler";
-import { WithTaxonomies } from "./lib/WithTaxonomies";
+import { buildDoc } from "./buildDoc";
+import { Filter, ForEach, Map } from "./lib/helpers";
 
 const PagesSchema = {
   blog : {
@@ -36,37 +36,36 @@ const PagesSchema = {
       })
     },
   },
-  // pages : z.object({
-  //   description: z.string(),
-  // }),
+  pages : z.object({
+    description: z.string(),
+    tags : z.array(z.string()),
+    hello : z.number()
+  }),
 } satisfies ArchetypeTree;
 
-async function buildDoc(source : string){
-  const {frontmatter, code} = await bundleMDX({
-    source,
-    esbuildOptions(options){
-      options.define ={ 
-        'process.env.NODE_ENV' : process.env.NODE_ENV || `"development"`
-      }
-      return options;
-    },
-  });
-  return {frontmatter, code};
-}
+
 const rootPagesSchema = z.object({
   description : z.string()
 })
 
-// type P = TransformTree<typeof PagesSchema, typeof rootPagesSchema>;
-// const taxonomies = ["tags", "categories"] as const;
-// type whatever = TaxonomyContent<P, typeof taxonomies>;
-
-
+const content = {
+  blog : {
+    index : z.object({
+      description: z.string(),
+    }),
+    pages : z.object({
+      title: z.string(),
+      categories: z.array(z.string()),
+      tags: z.array(z.string()),
+      author: z.string(),
+      description : z.string()
+    })
+  }
+}
 makeContent({
   inputDir : 'content',
-  schemaTree : PagesSchema,
+  schemaTree : content,
   build : buildDoc,
   rootPagesSchema
-}).then(Content => {
-  WithTaxonomies(Content, ["tags", "categories", "authors"] as const)
+}).then(content => {
 });
