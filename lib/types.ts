@@ -75,34 +75,3 @@ type _PagesTypeUnionRecursive<T extends Section, Filter extends Record<string, a
 };
 
 export type PagesTypeUnionRecursive<T extends Section, Filter extends Record<string, any>={}> = Page<NonNullable<UnionObjectValues<_PagesTypeUnionRecursive<T, Filter>>>>;
-
-type _Taxonomize<T extends any, Taxonomy extends string> = {
-  [key in keyof T] : T[key] extends Array<Page<infer U>> ?
-                        Taxonomy extends keyof U ? U : undefined
-                   : T[key] extends Page<infer U> ?
-                        Taxonomy extends keyof U ? U : undefined
-                   : T[key] extends Array<Record<string, any>> ?
-                        UnionObjectValues<_Taxonomize<T[key][number], Taxonomy>>
-                   : T[key] extends Record<string, any> ?
-                        UnionObjectValues<_Taxonomize<T[key], Taxonomy>>
-                   : undefined
-                    
-};
-
-
-export type Taxonomize<T extends any, Taxonomy extends string> = NonNullable<UnionObjectValues<_Taxonomize<T, Taxonomy>>>;
-
-export type TaxonomyContent<T extends any, U extends readonly string[]> = {
-  [K in U[number]] : Taxonomize<T, K> extends never ? undefined 
-                   : { all : string[], pages : Array<Page<Taxonomize<T, K>>>}
-}
-
-export type MakeContentProps<T extends ArchetypeTree, U extends AnyZodObject> = {
-  inputDir : string;
-  schemaTree : T;
-  build : (source : string) => Promise<PageContent>
-  rootPagesSchema : U;
-}
-// export type WithTaxonomiesProps = {
-
-// }

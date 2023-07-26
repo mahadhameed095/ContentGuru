@@ -1,12 +1,17 @@
-import { ZodTypeAny, TransformTree, ArchetypeTree, Page, MakeContentProps } from './types';
-import { ZodObject } from 'zod';
+import { TransformTree, ArchetypeTree, Page, PageContent } from './types';
+import { AnyZodObject, ZodObject, z } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { trimFileExtension } from './utils';
 import { existsSync } from 'fs';
 
-export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
-({ inputDir, schemaTree , build, rootPagesSchema } : MakeContentProps<T, U>) : Promise<TransformTree<T, U>>
+export default async function MakeContent<T extends ArchetypeTree, U extends AnyZodObject>
+({ inputDir, schemaTree , build, rootPagesSchema } : {
+  inputDir : string;
+  schemaTree : T;
+  build : (source : string) => Promise<PageContent>
+  rootPagesSchema ?: U;
+}) : Promise<TransformTree<T, U>>
 {
   const structure : any = { 
     path : inputDir,
@@ -26,16 +31,16 @@ export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
   const notDefinedFiles = files.filter(file => !definedFilesInSchema.includes(trimFileExtension(file)));
   const notDefinedFolders = directories.filter(folder => !definedFoldersInSchema.includes(folder));
   
-  const pagesSchema = schemaTree['pages'] || rootPagesSchema;
+  const pagesSchema = schemaTree['pages'] || rootPagesSchema || z.object({});
   
   await Promise.all(
     definedFilesInSchema.map(async filename => {
       const fullPath = join(inputDir, filename + '.mdx');
       if(existsSync(fullPath)){
         const data = await build(await readFile(fullPath, 'utf-8'));
-        (schemaTree[filename] as ZodTypeAny).parse(data.frontmatter);
+        (schemaTree[filename] as AnyZodObject).parse(data.frontmatter);
         structure[filename] = { ...data, path : fullPath};
-      }else if(!(schemaTree[filename] as ZodTypeAny).isOptional()){ /* if file was required */
+      }else if(!(schemaTree[filename] as AnyZodObject).isOptional()){ /* if file was required */
          throw `${fullPath} is not found yet required in schema!`;
       } /* do nothing if it was optional and not found*/
     })
@@ -53,7 +58,7 @@ export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
   await Promise.all(    
     definedFoldersInSchema.map(async folder => {
       const fullPath = join(inputDir, folder);
-      structure[folder] = await makeContent({
+      structure[folder] = await MakeContent({
         inputDir : fullPath,
         schemaTree : schemaTree[folder] as ArchetypeTree,
         build,
@@ -65,7 +70,7 @@ export async function makeContent<T extends ArchetypeTree, U extends ZodTypeAny>
   await Promise.all(
     notDefinedFolders.map(async folder => {
       const fullPath = join(inputDir, folder);
-      structure['sections'].push(await makeContent({
+      structure['sections'].push(await MakeContent({
         inputDir : fullPath,
         schemaTree : schemaTree['sections'] || { pages : pagesSchema },
         build,

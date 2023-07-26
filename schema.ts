@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import { ArchetypeTree } from './lib/types';
 export const PagesSchema = {
     blog : {
       index : z.object({
@@ -34,6 +35,5 @@ export const PagesSchema = {
     pages : z.object({
       description: z.string(),
       tags : z.array(z.string()),
-      hello : z.number()
     }),
   } satisfies ArchetypeTree;
