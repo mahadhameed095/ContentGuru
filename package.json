@@ -1,6 +1,10 @@
 {
   "name": "content-guru",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "files": [
+    "/dist"
+  ],
+  "main": "./dist/index.js",
   "devDependencies": {
     "@types/node": "^20.4.2",
     "typescript": "^5.1.6"
@@ -9,6 +13,6 @@
     "zod": "^3.21.4"
   },
   "scripts": {
-    "start": "npx tsc && node dist/index.js"
+    "build": "tsc"
   }
 }
