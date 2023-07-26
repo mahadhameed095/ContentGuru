@@ -1,19 +1,14 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Filter = exports.ForEach = exports.Map = exports.isValidObject = exports.isSection = exports.isPage = void 0;
-function isPage(value) {
+export function isPage(value) {
     if (!value || typeof value !== 'object')
         return false;
     return 'frontmatter' in value;
 }
-exports.isPage = isPage;
-function isSection(value) {
+export function isSection(value) {
     if (!value || typeof value !== 'object')
         return false;
     return 'pages' in value;
 }
-exports.isSection = isSection;
-function isValidObject(schema, data) {
+export function isValidObject(schema, data) {
     try {
         schema.parse(data);
         return true;
@@ -22,8 +17,7 @@ function isValidObject(schema, data) {
         return false;
     }
 }
-exports.isValidObject = isValidObject;
-function Map(section, fn) {
+export function Map(section, fn) {
     const pages = [];
     const definedPages = Object.keys(section)
         .filter(key => isPage(section[key]))
@@ -37,8 +31,7 @@ function Map(section, fn) {
     });
     return pages;
 }
-exports.Map = Map;
-function ForEach(section, fn) {
+export function ForEach(section, fn) {
     const definedPages = Object.keys(section)
         .filter(key => isPage(section[key]))
         .map(key => section[key]);
@@ -50,8 +43,7 @@ function ForEach(section, fn) {
         ForEach(section, fn);
     });
 }
-exports.ForEach = ForEach;
-function Filter({ section, filter, fn }) {
+export function Filter({ section, filter, fn }) {
     const pages = [];
     const definedPages = Object.keys(section)
         .filter(key => isPage(section[key]))
@@ -69,5 +61,4 @@ function Filter({ section, filter, fn }) {
     });
     return pages;
 }
-exports.Filter = Filter;
 //# sourceMappingURL=helpers.js.map
