@@ -1,18 +1,21 @@
 {
   "name": "content-guru",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "files": [
     "/dist"
   ],
+  "type": "module",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "devDependencies": {
     "@types/node": "^20.4.2",
+    "rimraf": "^5.0.1",
     "typescript": "^5.1.6"
   },
   "dependencies": {
     "zod": "^3.21.4"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "rimraf dist && tsc"
   }
 }

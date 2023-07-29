@@ -1,7 +1,7 @@
-import { ZodObject, z } from 'zod';
+import { z } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { trimFileExtension } from './utils';
+import { ZodValidatePageWithErrorMessage, isZodObject, trimFileExtension } from './utils.js';
 import { existsSync } from 'fs';
 export default async function MakeContent({ inputDir, schemaTree, build, rootPagesSchema }) {
     const structure = {
@@ -16,7 +16,7 @@ export default async function MakeContent({ inputDir, schemaTree, build, rootPag
         return acc;
     }, { files: [], directories: [] });
     const schemaKeys = Object.keys(schemaTree).filter(key => key !== 'sections' && key !== 'pages');
-    const definedFilesInSchema = schemaKeys.filter(key => schemaTree[key] instanceof ZodObject);
+    const definedFilesInSchema = schemaKeys.filter(key => isZodObject(schemaTree[key]));
     const definedFoldersInSchema = schemaKeys.filter(key => !definedFilesInSchema.includes(key));
     const notDefinedFiles = files.filter(file => !definedFilesInSchema.includes(trimFileExtension(file)));
     const notDefinedFolders = directories.filter(folder => !definedFoldersInSchema.includes(folder));
@@ -25,8 +25,9 @@ export default async function MakeContent({ inputDir, schemaTree, build, rootPag
         const fullPath = join(inputDir, filename + '.mdx');
         if (existsSync(fullPath)) {
             const data = await build(await readFile(fullPath, 'utf-8'));
-            schemaTree[filename].parse(data.frontmatter);
-            structure[filename] = { ...data, path: fullPath };
+            const page = { ...data, path: fullPath };
+            ZodValidatePageWithErrorMessage(schemaTree[filename], page);
+            structure[filename] = page;
         }
         else if (!schemaTree[filename].isOptional()) { /* if file was required */
             throw `${fullPath} is not found yet required in schema!`;
@@ -35,8 +36,9 @@ export default async function MakeContent({ inputDir, schemaTree, build, rootPag
     await Promise.all(notDefinedFiles.map(async (filename) => {
         const fullPath = join(inputDir, filename);
         const data = await build(await readFile(fullPath, 'utf-8'));
-        pagesSchema.parse(data.frontmatter);
-        structure['pages'].push({ ...data, path: fullPath });
+        const page = { ...data, path: fullPath };
+        ZodValidatePageWithErrorMessage(pagesSchema, page);
+        structure['pages'].push(page);
     }));
     await Promise.all(definedFoldersInSchema.map(async (folder) => {
         const fullPath = join(inputDir, folder);

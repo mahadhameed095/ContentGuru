@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AnyZodObject, Page, PagesTypeUnionRecursive, Section } from "./types";
+import { AnyZodObject, Page, PagesTypeUnionRecursive, Section } from "./types.js";
 export declare function isPage(value: any): value is Page<any>;
 export declare function isSection(value: any): value is Section<any>;
 export declare function isValidObject(schema: AnyZodObject, data: unknown): boolean;

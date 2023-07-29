@@ -1,4 +1,4 @@
-import { TransformTree, ArchetypeTree, PageContent } from './types';
+import { TransformTree, ArchetypeTree, PageContent } from './types.js';
 import { AnyZodObject } from 'zod';
 export default function MakeContent<T extends ArchetypeTree, U extends AnyZodObject>({ inputDir, schemaTree, build, rootPagesSchema }: {
     inputDir: string;

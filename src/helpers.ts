@@ -1,5 +1,5 @@
 import { z } from "zod";
-import {  AnyZodObject, Page, PagesTypeUnionRecursive, Section } from "./types";
+import {  AnyZodObject, Page, PagesTypeUnionRecursive, Section } from "./types.js";
 
 export function isPage(value : any) : value is Page<any> {
     if(!value || typeof value !== 'object') return false;
