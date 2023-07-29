@@ -68,9 +68,10 @@ export function Filter<T extends Section, F extends AnyZodObject>({ section, fil
                                     .map(key => section[key]) as Section[];
     
     pages.push(...section.pages.concat(definedPages).filter( (page, i) => {
-        const first = fn ? fn(page, i) : true;
-        const second = filter ? isValidObject(filter, page.frontmatter) : true;
-        return first && second;
+        const first = filter ? isValidObject(filter, page.frontmatter) : true;
+        if (!first) return false; /* more preference given to the filter. it will return early only when filter is defined, and not validated. */
+        const second = fn ? fn(page, i) : true;
+        return second;
     }));
     
     definedSections.concat(section.sections).forEach(section => {
