@@ -37,8 +37,9 @@ export default async function MakeContent<T extends ArchetypeTree, U extends Any
     definedFilesInSchema.map(async filename => {
       const fullPath = join(inputDir, filename + '.mdx');
       if(existsSync(fullPath)){
-        const data = await build(await readFile(fullPath, 'utf-8'));
-        const page : Page = { ...data, path : fullPath};
+        const source = await readFile(fullPath, 'utf-8');
+        const data = await build(source);
+        const page : Page = { ...data, source, path : fullPath};
         ZodValidatePageWithErrorMessage(schemaTree[filename] as AnyZodObject, page)
         structure[filename] = page;
       }else if(!(schemaTree[filename] as AnyZodObject).isOptional()){ /* if file was required */
@@ -50,8 +51,9 @@ export default async function MakeContent<T extends ArchetypeTree, U extends Any
   await Promise.all(
     notDefinedFiles.map(async filename => {
       const fullPath = join(inputDir, filename);
-      const data = await build(await readFile(fullPath, 'utf-8'));
-      const page : Page = { ...data, path : fullPath}; 
+      const source = await readFile(fullPath, 'utf-8');
+      const data = await build(source);
+      const page : Page = { ...data, source, path : fullPath}; 
       ZodValidatePageWithErrorMessage(pagesSchema, page)
       structure['pages'].push(page);
     })

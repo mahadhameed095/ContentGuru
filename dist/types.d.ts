@@ -2,17 +2,18 @@ import { AnyZodObject, z } from 'zod';
 export type { AnyZodObject };
 type ZodInfer<T extends AnyZodObject> = z.infer<T>;
 export type PageContent<T extends Record<string, any> = any> = {
-    frontmatter: T;
-    code: string;
+    readonly frontmatter: T;
+    readonly code: string;
 };
 export type Page<T extends Record<string, any> = any> = {
-    path: string;
+    readonly path: string;
+    readonly source: string;
 } & PageContent<T>;
 export type Section<T extends Record<string, any> = any> = {
-    path: string;
-    pages: Array<Page<T>>;
-    sections: Array<Section<T>>;
-    [k: string]: Page | Section | Array<Page<T>> | Array<Section<T>> | string | undefined;
+    readonly path: string;
+    readonly pages: Array<Page<T>>;
+    readonly sections: Array<Section<T>>;
+    [k: string]: Page | Section | Array<Page<T>> | Array<Section<T>> | string;
 };
 export type ArchetypeTree<T extends AnyZodObject = AnyZodObject> = {
     pages?: T;

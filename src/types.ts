@@ -5,19 +5,23 @@ export type { AnyZodObject };
 type ZodInfer<T extends AnyZodObject> = z.infer<T>;
 
 export type PageContent<T extends Record<string, any>=any> = {
-    frontmatter : T;
-    code : string;
+    readonly frontmatter : T;
+    readonly code : string;
 }
 export type Page<T extends Record<string, any> = any> = {
-    path : string;
+    readonly path :  string;
+    readonly source : string;
 } & PageContent<T>
 
 
 export type Section<T extends Record<string, any>=any> = {
-  path : string;
-  pages : Array<Page<T>>;
-  sections : Array<Section<T>>;
-  [k : string] : Page | Section | Array<Page<T>> | Array<Section<T>> | string | undefined;
+  readonly path : string;
+  readonly pages : Array<Page<T>>;
+  readonly sections : Array<Section<T>>;
+  [k : string] : Page | Section | Array<Page<T>> | Array<Section<T>> | string; 
+  /* The extra types other than Page and Section are here because typescript does not support negated types yet https://github.com/microsoft/TypeScript/issues/4196*/
+  /* [k : string ~ ("pages" | "sections")] : Page | Section*/
+  /* Something like this should be possible eventually. hopefully... */
 };
 
 export type ArchetypeTree<T extends AnyZodObject = AnyZodObject> = {

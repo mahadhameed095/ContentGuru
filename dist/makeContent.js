@@ -24,8 +24,9 @@ export default async function MakeContent({ inputDir, schemaTree, build, rootPag
     await Promise.all(definedFilesInSchema.map(async (filename) => {
         const fullPath = join(inputDir, filename + '.mdx');
         if (existsSync(fullPath)) {
-            const data = await build(await readFile(fullPath, 'utf-8'));
-            const page = { ...data, path: fullPath };
+            const source = await readFile(fullPath, 'utf-8');
+            const data = await build(source);
+            const page = { ...data, source, path: fullPath };
             ZodValidatePageWithErrorMessage(schemaTree[filename], page);
             structure[filename] = page;
         }
@@ -35,8 +36,9 @@ export default async function MakeContent({ inputDir, schemaTree, build, rootPag
     }));
     await Promise.all(notDefinedFiles.map(async (filename) => {
         const fullPath = join(inputDir, filename);
-        const data = await build(await readFile(fullPath, 'utf-8'));
-        const page = { ...data, path: fullPath };
+        const source = await readFile(fullPath, 'utf-8');
+        const data = await build(source);
+        const page = { ...data, source, path: fullPath };
         ZodValidatePageWithErrorMessage(pagesSchema, page);
         structure['pages'].push(page);
     }));
