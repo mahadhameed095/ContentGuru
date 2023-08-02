@@ -69,50 +69,55 @@ export type TransformTree<T extends ModelTree, U extends Model=Model> = {
         : never
 }
 & (T extends { sections: ModelTree } ? {} : 
-  { sections: T extends { pages : Model<infer F, infer C> } ? 
-      Array<Section<PageBase<ZodInfer<F>, C>>> 
-    : Array<Section<PageBase<ZodInfer<U['metadata']>, U['computedFields']>>> 
+  { sections: T extends { pages : Model<infer M, infer C> } ? 
+      Array<Section<PageBase<ZodInfer<M>, C>>> 
+      : U extends Model<infer M, infer C> ?
+      Array<Section<PageBase<ZodInfer<M>, C>>> 
+    : never 
   }
 /* If pages is not defined then add pages of inherited type */
 ) & (T extends { pages : AnyZodObject } ? {} :
-  { pages : Array<Page<PageBase<ZodInfer<U['metadata']>, U['computedFields']>>> }
+  { 
+    pages : 
+      U extends Model<infer M, infer C> ?
+        Array<Page<PageBase<ZodInfer<M>, C>>>
+      : never
+  }
 /* Add path variable */
 ) & { path : string };
 
-
 type UnionObjectValues<T> = T[keyof T];
 
-// type _PagesBaseUnionRecursive<T extends Section, Filter extends Obj={}> = {
-//   [key in keyof T] : T[key] extends Array<Page<PageBase<infer M, infer C>>> ?
-//                       M extends Filter ? PageBase<M, C> : undefined 
-//                    : T[key] extends Page<PageBase<infer M, infer C>> ?
-//                       M extends Filter ? PageBase<M, C> : undefined 
-//                    : T[key] extends Array<Section> ?
-//                       UnionObjectValues<_PagesBaseUnionRecursive<T[key][number], Filter>>
-//                    : T[key] extends Section ?
-//                       UnionObjectValues<_PagesBaseUnionRecursive<T[key], Filter>>
-//                    : never
-// };
-type _PagesTypeUnion<T extends Section> = {
+type _PagesBaseUnionRecursiveWithFilter<T extends Section, Filter extends Obj> = {
+  [key in keyof T] : T[key] extends Array<Page<infer P>> ?
+                      P['metadata'] extends Filter ? P : undefined 
+                   : T[key] extends Page<infer P> ?
+                      P['metadata'] extends Filter ? P : undefined 
+                   : T[key] extends Array<Section> ?
+                      UnionObjectValues<_PagesBaseUnionRecursiveWithFilter<T[key][number], Filter>>
+                   : T[key] extends Section ?
+                      UnionObjectValues<_PagesBaseUnionRecursiveWithFilter<T[key], Filter>>
+                   : never
+};
+
+export type PagesBaseUnionRecursiveWithFilter<T extends Section, Filter extends Obj> = 
+    NonNullable<
+      UnionObjectValues<
+        _PagesBaseUnionRecursiveWithFilter<T, Filter>>>;
+
+export type PagesTypeUnionRecursiveWithFilter<T extends Section, Filter extends Obj> = 
+  PagesBaseUnionRecursiveWithFilter<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : never;
+
+type _PagesBaseUnionRecursive<T extends Section> = {
   [key in keyof T] : T[key] extends Array<Page<infer P>> ? P
                    : T[key] extends Page<infer P> ? P
                    : T[key] extends Array<Section> ?
-                      UnionObjectValues<_PagesTypeUnion<T[key][number]>>
+                      UnionObjectValues<_PagesBaseUnionRecursive<T[key][number]>>
                    : T[key] extends Section ?
-                      UnionObjectValues<_PagesTypeUnion<T[key]>>
+                      UnionObjectValues<_PagesBaseUnionRecursive<T[key]>>
                    : never;
 };
-export type PagesTypeUnionRecursive<T extends Section> = Page<UnionObjectValues<_PagesTypeUnion<T>>>; 
 
-// export type PagesBaseUnionRecursive<T extends Section, Filter extends Obj={}> = 
-//       NonNullable<
-//         UnionObjectValues<
-//           _PagesBaseUnionRecursive<T, Filter>>>;
-// /* Unable to fix the error where wrapping this type with Page errors. */
+export type PagesBaseUnionRecursive<T extends Section> = UnionObjectValues<_PagesBaseUnionRecursive<T>>;
 
-
-// export 
-//   type PagesTypeUnionRecursive<T extends Section, Filter extends Obj={}> 
-//   = PagesBaseUnionRecursive<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : never;
-
-
+export type PagesTypeUnionRecursive<T extends Section> = Page<PagesBaseUnionRecursive<T>>; 

@@ -1,5 +1,5 @@
 import {AnyZodObject, z } from "zod";
-import { Page, Section, PagesTypeUnionRecursive } from "./types.js";
+import { Page, Section, PagesTypeUnionRecursive, PagesTypeUnionRecursiveWithFilter } from "./types.js";
 
 export function isPage(value : any) : value is Page {
     if(!value || typeof value !== 'object') return false;
@@ -20,7 +20,8 @@ export function isValidObject(schema : AnyZodObject, data : unknown) {
     }
 }
 
-export function Map<T extends Section, U extends unknown>(section : T, fn : (page : PagesTypeUnionRecursive<T>, i : number) => U) : Array<U>{
+/* Any is passed to section generic until i can figure out the correct way to do this. */
+export function Map<T extends Section<any>, U extends unknown>(section : T, fn : (page : PagesTypeUnionRecursive<T>, i : number) => U) : Array<U>{
     const pages : U[] = [];
     const definedPages = Object.keys(section)
                             .filter(key => isPage(section[key]))
@@ -28,7 +29,7 @@ export function Map<T extends Section, U extends unknown>(section : T, fn : (pag
 
     const definedSections = Object.keys(section)
                                     .filter(key => isSection(section[key]))
-                                    .map(key => section[key]) as Section<PagesTypeUnionRecursive<T>>[];
+                                    .map(key => section[key]) as Section[];
     
     pages.push(...definedPages.map(fn));
     pages.push(...section.pages.map(fn));                           
@@ -38,7 +39,7 @@ export function Map<T extends Section, U extends unknown>(section : T, fn : (pag
     return pages;
 }
 
-export function ForEach<T extends Section>(section : T, fn : (Page : PagesTypeUnionRecursive<T>, i : number) => any){
+export function ForEach<T extends Section<any>>(section : T, fn : (Page : PagesTypeUnionRecursive<T>, i : number) => any){
     const definedPages = Object.keys(section)
                             .filter(key => isPage(section[key]))
                             .map(key => section[key]) as Page[];
@@ -53,30 +54,33 @@ export function ForEach<T extends Section>(section : T, fn : (Page : PagesTypeUn
     });
 }
 
-// export function Filter<T extends Section, F extends AnyZodObject>({ section, filter, fn } : {
-//     section : T;
-//     filter ?: F;
-//     fn ?: (Page : PagesTypeUnionRecursive<T, z.infer<F>>, i : number) => boolean;
-// }) : Array<PagesTypeUnionRecursive<T, z.infer<F>>> {
-//     const pages : PagesTypeUnionRecursive<T, z.infer<F>>[] = [];
-//     const definedPages = Object.keys(section)
-//                             .filter(key => isPage(section[key]))
-//                             .map(key => section[key]) as Page[];
+export function Filter<T extends Section<any>, F extends AnyZodObject>({ section, filter, fn } : {
+    section : T;
+    filter ?: F;
+    fn ?: (Page : PagesTypeUnionRecursiveWithFilter<T, z.infer<F>>, i : number) => boolean;
+}) : Array< PagesTypeUnionRecursiveWithFilter<T, z.infer<F>>> {
+    const pages : PagesTypeUnionRecursiveWithFilter<T, z.infer<F>>[] = [];
+    const definedPages = Object.keys(section)
+                            .filter(key => isPage(section[key]))
+                            .map(key => section[key]) as Page[];
 
-//     const definedSections = Object.keys(section)
-//                                     .filter(key => isSection(section[key]))
-//                                     .map(key => section[key]) as Section[];
+    const definedSections = Object.keys(section)
+                                    .filter(key => isSection(section[key]))
+                                    .map(key => section[key]) as Section[];
     
-//     pages.push(...section.pages.concat(definedPages).filter( (page, i) => {
-//         const first = filter ? isValidObject(filter, page.metadata) : true;
-//         if (!first) return false; /* more preference given to the filter. it will return early only when filter is defined, and not validated. */
-//         const second = fn ? fn(page, i) : true;
-//         return second;
-//     }));
-    
-//     definedSections.concat(section.sections).forEach(section => {
-//         pages.push(...Filter<Section, F>({section, filter, fn}));
-//     });
+    const outerFun = (page : Page, i : number) =>  {
+        const first = filter ? isValidObject(filter, page.metadata) : true;
+        if (!first) return false; /* more preference given to the filter. it will return early only when filter is defined, and not validated. */
+        const second = fn ? fn(page, i) : true;
+        return second; 
+    }
 
-//     return pages;
-// }
+    pages.push(...definedPages.filter(outerFun));
+    pages.push(...section.pages.filter(outerFun));
+
+    definedSections.concat(section.sections).forEach(section => {
+        pages.push(...Filter<Section<any>, F>({section, filter, fn}));
+    });
+
+    return pages;
+}
