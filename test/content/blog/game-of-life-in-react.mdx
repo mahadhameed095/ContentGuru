@@ -1,0 +1,240 @@
+---
+title : "Game Of Life in React"
+tags : ["Visualization", "React-Konva"]
+categories : ["Javascript", "React"]
+author : "mahad"
+description : "Create a captivating visualization of Conway's Game of Life using React, bringing the mesmerizing patterns of this cellular automaton to life on your screen"
+---
+# Table of contents
+Welcome to the world of React and the mesmerizing realm of [Conway's Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life)! In this blog post, we'll explore the exciting fusion of these two concepts, diving into the art of visualizing this captivating cellular automaton on your screen. Prepare to witness the birth, growth, and evolution of intricate patterns as we embark on a journey that combines the power of React's component-based architecture with the timeless fascination of Game of Life.
+# What is Game Of Life?
+Imagine a digital universe where tiny cells exist and thrive, following a set of simple yet captivating rules. The Game of Life is a mesmerizing simulation invented by mathematician John Conway that allows you to witness the emergence of mesmerizing patterns and complex behaviors within this virtual world.
+The rules of this game are straightforward: each cell can either be alive or dead. The fate of a cell is determined by its neighboring cells. Here's how it unfolds:
+1. Any live cell with fewer than two live neighbors dies, as if by loneliness.
+2. Any live cell with two or three live neighbors survives, as if by a harmonious balance.
+3. Any live cell with more than three live neighbors dies, as if by overcrowding.
+4. Any dead cell with exactly three live neighbors becomes alive, as if by reproduction.
+
+With these deceptively simple rules, a rich tapestry of patterns emerges—oscillators pulsate, gliders gracefully glide across the screen, and still lifes remain motionless. As you explore and visualize the Game of Life in React, prepare to unlock the secrets of this enchanting cellular automaton and witness the mesmerizing dance of life and death within its pixelated universe.
+
+# Implementation in React
+Now that we have a grasp of the captivating essence of the Game of Life, let's dive into the exciting world of coding it in React. In this tutorial, we'll be leveraging the power of the [Konva library](https://konvajs.org/docs/react/index.html), a powerful tool for creating interactive and visually stunning applications.
+
+## Installation
+To get started, make sure you have React and Konva installed in your project. You can easily set up a new React project using [Create React App](https://create-react-app.dev/) or add React to an existing project.
+
+```cmd title="terminal"
+npx create-react-app my-app
+npm install react-konva konva --save
+```
+
+## Creating a component
+In order to represent a grid of cells, and their state(dead or alive), we will use a two-dimensional boolean array state, and fill it randomly. A false value represents a dead cell, whereas a true value represents an alive cell.
+```jsx title="GameOfLife.jsx"
+import { useState } from "react";
+const GameOfLife = ({width, rows, cols}) => {
+  const cellSize = width / cols;
+  const height = cellSize * rows;
+  const [cells, setcells] = useState(
+        Array.from({ length: rows }, () => 
+        Array.from({ length: cols }, () => Math.random() > 0.5))
+    ); /* rows x cols size array */           
+}
+```
+
+## Rendering the Grid
+Now that we have our basic grid logic completed, we can render it. For each item in the array, we will return a [Rect](https://konvajs.org/api/Konva.Rect.html) component and pass appropriate props. 
+
+> We also need [Stage](https://konvajs.org/api/Konva.Stage.html), and [Layer](https://konvajs.org/api/Konva.Layer.html) components to render the Rect components.
+
+```jsx title="GameOfLife.jsx"
+import {Stage, Layer, Rect} from 'react-konva';
+/* Continued */
+return (
+<Stage width={width} height={height}>
+    <Layer>
+        {cells.map((row, i) =>
+            row.map((cell, j) => {
+                return (
+                    <Rect
+                        key={[i, j].toString()}
+                        x={j * cellSize}
+                        y={i * cellSize}
+                        width={cellSize}
+                        height={cellSize}
+                        /* Conditionally fill color if alive or dead */
+                        fill={cells[i][j] ? "yellow" : "gray"}
+                        stroke="white"
+                        strokeWidth={1}
+                    />
+                );
+            })
+        )}
+    </Layer>
+</Stage>
+)
+```
+
+## Counting the neighbors
+To compute whether, a specific cell will remain alive or dead in the next generation, we need to count its living neighbors. A simple way to do so is just by iterating through all cells, and checking their immediate neighbors.
+
+```jsx title="GameOfLife.jsx"
+function CountAliveNeighbors(cells, row, col){
+  const rowCount = cells.length;
+  const colCount = cells[0].length;
+
+  let aliveNeighborCount = 0;
+
+  const neighborOffsets = [
+    [-1, -1],    [-1, 0],    [-1, 1],
+    [0,  -1], /*[row, col]*/ [0,  1],
+    [1,  -1],    [1,  0],    [1,  1],
+  ];
+
+  for (const [offsetRow, offsetCol] of neighborOffsets) {
+    const neighborRow = (row + offsetRow + rowCount) % rowCount;
+    const neighborCol = (col + offsetCol + colCount) % colCount;
+    if (cells[neighborRow][neighborCol]) {
+      aliveNeighborCount++;
+    }
+  }
+
+  return aliveNeighborCount;
+}
+```
+
+## Implementing the rules
+Recall the [rules of Game Of Life](#what-is-game-of-life). They are the core of Game Of Life deciding which cell gets to live, and die. We can summarize the rules into basically these 3 rules.
+
+1. If a cell is alive, it remains alive if its neighbor count is 2 or 3.
+2. If a cell is dead, it can be alive again if its neighbor count is exactly 3.
+3. In all other scenarios, the cell will die (or remain dead).
+
+```js title="GameOfLife.jsx"
+function nextState(state, neighborCount){
+  if(state){ // alive
+    if(neighborCount === 2 || neighborCount === 3)
+      return true; // remains alive
+  }
+  else{ // dead
+    if(neighborCount === 3)
+      return true; // resurrection!!
+  }
+  return false; // dies or remains dead
+}
+```
+## Putting it all together
+Now we have got all the pieces of the puzzle, and we can put them all together. Lets define a function that given the old generation, returns the current or next generation.
+
+```jsx title="GameOfLife.jsx"
+function GetNextGeneration(oldGeneration){
+  const nextGeneration = 
+    oldGeneration.map((row, i) => 
+      oldGeneration.map((cell, j) => {
+        const neighborCount = CountAliveNeighbors(oldGeneration, i, j);
+        return nextState(cell, neighborCount);
+      })
+    )
+
+  return nextGeneration;
+}
+```
+
+## Animating the grid
+Now that we have the entire logic set up, all we need to do is make an animation loop which will keep updating the grid based on our function `GetNextGeneration`. I wrote a simple animation hook that utilized the [`requestAnimationFrames API`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame) to call our update function repeatedly.
+
+```jsx title="GameOfLife.jsx"
+import { useCallback } from 'react';
+import useAnimate from './useAnimate';
+
+const { pause, play, playing } = useAnimate(useCallback(() => {
+  setcells(previousGeneration => getNextGeneration(previousGeneration));
+}, []), 15);
+```
+
+```js title="useAnimate.js"
+import { useRef, useState, useEffect } from "react";
+
+const useAnimate = (animationFunction, frameRate) => {
+    const animationRef = useRef();
+    const [playing, setplaying] = useState(false);
+
+    useEffect(() => {
+        if (playing) {
+            animationRef.current = requestAnimationFrame(() => {
+                let then = performance.now();
+                const animate = () => {
+                    const interval = 1000 / frameRate;
+                    const now = performance.now();
+                    const delta = now - then;
+
+                    if (delta >= interval) {
+                        animationFunction();
+                        then = now - (delta % interval);
+                    }
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+                animate();
+            });
+        }
+        return () => {
+            animationRef.current && cancelAnimationFrame(animationRef.current);
+        }
+    }, [animationFunction, frameRate, playing]);
+
+    const play = () => {
+        setplaying(true);
+    };
+    
+    const pause = () => {
+        setplaying(false);
+    };
+
+    return {
+        play,
+        pause,
+        playing,
+    };
+};
+
+export default useAnimate;
+```
+
+Now you can use the Play, Pause, Playing variables returned by the hook the manipulate the animation as you see fit.
+
+---
+
+# Exercise for reader
+Congratulations on creating a captivating visualization of Conway's Game of Life using React and Konva! You have successfully implemented the core functionality and brought the mesmerizing patterns of this cellular automaton to life on the screen. Now, let's take it a step further and consider some possible improvements and additional features that you can explore:
+
+- **User Controls** : Enhance the interactivity of your visualization by adding buttons or controls to start, stop, and reset the animation. This allows users to have more control over the simulation and interact with it at their own pace.
+
+- **Speed Control** : Implement a slider or buttons to adjust the animation speed. This feature empowers users to speed up or slow down the simulation according to their preference, providing a more immersive experience.
+
+- **Toggle Cells** : Enable users to click on individual cells to toggle their state between alive and dead. This interactive feature allows users to create their own initial patterns or experiment with specific cell configurations, adding a creative element to the visualization.
+
+- **Pattern Presets** : Include a selection of pre-defined patterns, such as gliders, oscillators, or famous Game of Life structures. Users can choose from these presets and observe their behavior within the simulation, providing a deeper exploration of the Game of Life's patterns and dynamics.
+
+- **User Interface Enhancements** : Consider improving the overall user interface by adding labels, tooltips, or informational overlays to provide guidance and explanations about the Game of Life and the controls available to the user.
+
+- **Responsive Design** : Optimize your visualization to be responsive across different screen sizes and devices. This ensures that users can enjoy the Game of Life simulation on various platforms and screen resolutions.
+
+---
+
+# Personal Note
+
+This blog post holds a special significance for me as it marks my first contribution to my blog website. However, this post is more than just another tutorial or project showcase. It represents a deeply personal connection to Conway's Game of Life and its role in my journey as a programmer and web developer.
+
+Conway's Game of Life was the spark that ignited my passion for programming. I was captivated by the simple yet mesmerizing patterns that emerged from the interplay of life and death within this virtual universe. It revealed to me the power of code to create complex and beautiful phenomena from basic rules.
+
+Since that moment, implementing the Game of Life has become my personal litmus test for new frameworks and languages. Whenever I dive into learning a new technology, I make it a point to reimplement this cellular automaton. It has become my way of gauging my understanding and capabilities. If I can successfully bring the patterns of life to life on the screen using a new framework or language, I feel a sense of accomplishment and readiness to tackle any programming challenge in it.
+
+This project holds a special place in my heart as a homage to the magic and inspiration that the Game of Life continues to bring to my programming journey. It symbolizes the love and curiosity that drives me to explore new technologies and push my boundaries as a developer.
+
+I hope this blog post not only serves as a tutorial for implementing the Game of Life in React but also conveys the passion and excitement I have for this captivating cellular automaton. May it inspire you to delve into the world of Game of Life and discover the wonders that lie within its deceptively simple rules.
+
+Thank you for joining me on this journey, and I hope you find joy and inspiration as you explore the mesmerizing dance of life and death within the pixels of the Game of Life. Stay tuned for more entertaining posts like these!
+
+With enthusiasm and a sense of infinite possibilities,
+
+**Mahad Hameed**

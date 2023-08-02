@@ -1,14 +1,14 @@
-import { TransformTree, ArchetypeTree, Page, PageContent, Section } from './types.js';
-import { AnyZodObject, z } from 'zod';
+import { TransformTree, ModelTree, Model, Page, Section, PageContent } from './types.js';
+import { z } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { ZodValidatePageWithErrorMessage, isZodObject, trimFileExtension } from './utils.js';
 import { existsSync } from 'fs';
 
-export default async function MakeContent<T extends ArchetypeTree, U extends AnyZodObject>
-({ inputDir, schemaTree , build, rootPagesSchema } : {
+export default async function MakeContent<T extends ModelTree, U extends Model>
+({ inputDir, modelTree , build, rootPagesSchema } : {
   inputDir : string;
-  schemaTree : T;
+  modelTree : T;
   build : (source : string) => Promise<PageContent>
   rootPagesSchema ?: U;
 }) : Promise<TransformTree<T, U>>
@@ -25,24 +25,36 @@ export default async function MakeContent<T extends ArchetypeTree, U extends Any
     return acc;
   }, { files : [] as string[], directories : [] as string[] });
   
-  const schemaKeys = Object.keys(schemaTree).filter(key => key !== 'sections' && key !== 'pages');
-  const definedFilesInSchema = schemaKeys.filter(key => isZodObject(schemaTree[key] as object));
+  const schemaKeys = Object.keys(modelTree).filter(key => key !== 'sections' && key !== 'pages');
+  const definedFilesInSchema = schemaKeys.filter(key => isZodObject(modelTree[key] as object));
   const definedFoldersInSchema = schemaKeys.filter(key => !definedFilesInSchema.includes(key));
   const notDefinedFiles = files.filter(file => !definedFilesInSchema.includes(trimFileExtension(file)));
   const notDefinedFolders = directories.filter(folder => !definedFoldersInSchema.includes(folder));
   
-  const pagesSchema = schemaTree['pages'] || rootPagesSchema || z.object({});
-  
+  const pagesModel =  modelTree['pages'] || 
+                      rootPagesSchema || 
+                      { metadata : z.object({}), computedFields : undefined};
+
   await Promise.all(
     definedFilesInSchema.map(async filename => {
       const fullPath = join(inputDir, filename + '.mdx');
       if(existsSync(fullPath)){
         const source = await readFile(fullPath, 'utf-8');
         const data = await build(source);
-        const page : Page = { ...data, source, path : fullPath};
-        ZodValidatePageWithErrorMessage(schemaTree[filename] as AnyZodObject, page)
+        let page : Page = { ...data, source, path : fullPath};        
+        const model = (modelTree[filename] as Model)
+        ZodValidatePageWithErrorMessage(model['metadata'], page)        
+        const computedFields = ( model.computedFields ? {
+          computedFields : model['computedFields']({ 
+            metadata : page.metadata,
+            source : page.source,
+            path : page.path,
+            content : page.content 
+          })
+        } : {});
+        page = {...page, ...computedFields};
         structure[filename] = page;
-      }else if(!(schemaTree[filename] as AnyZodObject).isOptional()){ /* if file was required */
+      }else if(!(modelTree[filename] as Model)['metadata'].isOptional()){ /* if file was required */
          throw `${fullPath} is not found yet required in schema!`;
       } /* do nothing if it was optional and not found*/
     })
@@ -53,8 +65,18 @@ export default async function MakeContent<T extends ArchetypeTree, U extends Any
       const fullPath = join(inputDir, filename);
       const source = await readFile(fullPath, 'utf-8');
       const data = await build(source);
-      const page : Page = { ...data, source, path : fullPath}; 
-      ZodValidatePageWithErrorMessage(pagesSchema, page)
+      let page : Page = { ...data, source, path : fullPath}; 
+      ZodValidatePageWithErrorMessage(pagesModel['metadata'], page);
+      
+      const computedFields = ( pagesModel.computedFields  ? {
+        computedFields : pagesModel['computedFields']({ 
+          metadata : page.metadata,
+          source : page.source,
+          path : page.path,
+          content : page.content 
+        })
+      }: {});
+      page = {...page, ...computedFields};
       structure['pages'].push(page);
     })
   );
@@ -64,9 +86,9 @@ export default async function MakeContent<T extends ArchetypeTree, U extends Any
       const fullPath = join(inputDir, folder);
       structure[folder] = await MakeContent({
         inputDir : fullPath,
-        schemaTree : schemaTree[folder] as ArchetypeTree,
+        modelTree : modelTree[folder] as ModelTree,
         build,
-        rootPagesSchema : pagesSchema
+        rootPagesSchema : pagesModel
       });
     })
   );
@@ -76,10 +98,10 @@ export default async function MakeContent<T extends ArchetypeTree, U extends Any
       const fullPath = join(inputDir, folder);
       structure['sections'].push(await MakeContent({
         inputDir : fullPath,
-        schemaTree : schemaTree['sections'] || { pages : pagesSchema },
+        modelTree : modelTree['sections'] || { pages : pagesModel },
         build,
-        rootPagesSchema : pagesSchema
-      }));
+        rootPagesSchema : pagesModel
+      }) as Section);
     })
   );
 

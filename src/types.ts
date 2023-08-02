@@ -1,81 +1,118 @@
 import {AnyZodObject, z} from 'zod';
 
-export type { AnyZodObject };
+type Obj = Record<string, any>;
 
 type ZodInfer<T extends AnyZodObject> = z.infer<T>;
 
-export type PageContent<T extends Record<string, any>=any> = {
-    readonly frontmatter : T;
-    readonly code : string;
+export type PageContent<M extends Obj=Obj> = {
+  readonly metadata : M;
+  readonly content : string;
 }
-export type Page<T extends Record<string, any> = any> = {
+
+export type PageBase<M extends Obj=Obj, C extends Obj | undefined = Obj | undefined> = {
+  readonly metadata : M;
+  readonly computedFields ?: C;
+}
+
+export type Page<T extends PageBase=any> = {
+    readonly content : string;
     readonly path :  string;
     readonly source : string;
-} & PageContent<T>
+} & T
 
+export type PageWithoutComputedFields<T extends Page=Page> = Omit<T, 'computedFields'>
 
-export type Section<T extends Record<string, any>=any> = {
+export type Section<T extends PageBase=PageBase> = {
   readonly path : string;
   readonly pages : Array<Page<T>>;
   readonly sections : Array<Section<T>>;
-  [k : string] : Page | Section | Array<Page<T>> | Array<Section<T>> | string; 
+  [k : string] : Page<T> | Section<T> | Array<Page<T>> | Array<Section<T>> | string; 
   /* The extra types other than Page and Section are here because typescript does not support negated types yet https://github.com/microsoft/TypeScript/issues/4196*/
   /* [k : string ~ ("pages" | "sections")] : Page | Section*/
   /* Something like this should be possible eventually. hopefully... */
 };
 
-export type ArchetypeTree<T extends AnyZodObject = AnyZodObject> = {
+export type Model<M extends AnyZodObject=AnyZodObject, C extends Obj=Obj> = {
+  readonly metadata : M;
+  readonly computedFields ?: (page : Page) => C;
+};
+
+export type ModelTree<T extends Model=Model> = {
   pages ?: T;
-  sections ?: ArchetypeTree<T>;
-  [K : string] : T | ArchetypeTree<T> | undefined;
-}
+  sections ?: ModelTree<T>;
+  [K : string] : T | ModelTree<T> | undefined;
+};
 
-
-export type TransformTree<T extends ArchetypeTree, U extends AnyZodObject> = {
-  [K in keyof T] : 
-    T[K] extends AnyZodObject ? 
-      K extends 'pages' ? Array<Page<NonNullable<ZodInfer<T[K]>>>>
-                        : undefined extends ZodInfer<T[K]> ? 
-                          Page<NonNullable<ZodInfer<T[K]>>> | undefined
-                        : Page<ZodInfer<T[K]>>
+export type TransformTree<T extends ModelTree, U extends Model=Model> = {
+  [K in keyof T]: 
+    T[K] extends Model<infer F, infer C> ?
+      K extends 'pages' ? T[K] extends { computedFields : any } ? 
+                          Array<Page<PageBase<ZodInfer<F>, C>>>
+                        : Array<Page<PageBase<NonNullable<ZodInfer<F>>>>>
+                        : undefined extends ZodInfer<F> ?
+                          T[K] extends { computedFields : any } ?
+                          Page<PageBase<NonNullable<ZodInfer<F>>, C>> | undefined
+                        : Page<PageBase<NonNullable<ZodInfer<F>>>> | undefined
                         
-    : T[K] extends ArchetypeTree ?
-        T extends {pages : AnyZodObject} ?
-          K extends 'sections' ? 
-            Array<TransformTree<T[K], T['pages']>>
-          : TransformTree<T[K], T['pages']>
-        : K extends 'sections' ?
-            Array<TransformTree<T[K], U>>
-          : TransformTree<T[K], U>
-    : never
-} 
-/* If sections is not defined then add sections. when adding sections check if page types is defined. if yes use that or else use inherited page type */
-& (T extends { sections: ArchetypeTree } ? {} : 
-  { sections: T extends { pages : AnyZodObject } ? 
-      Array<Section<ZodInfer<T['pages']>>> 
-    : Array<Section<ZodInfer<U>>> 
+                        : T[K] extends { computedFields : any } ?
+                          Page<PageBase<ZodInfer<F>, C>>
+                        : Page<PageBase<ZodInfer<F>>>
+  
+  : T[K] extends ModelTree ?
+      T extends {pages : AnyZodObject} ?
+              K extends 'sections' ? 
+                Array<TransformTree<T[K], T['pages']>>
+              : TransformTree<T[K], T['pages']>
+            : K extends 'sections' ?
+                Array<TransformTree<T[K], U>>
+              : TransformTree<T[K], U>
+        : never
+}
+& (T extends { sections: ModelTree } ? {} : 
+  { sections: T extends { pages : Model<infer F, infer C> } ? 
+      Array<Section<PageBase<ZodInfer<F>, C>>> 
+    : Array<Section<PageBase<ZodInfer<U['metadata']>, U['computedFields']>>> 
   }
 /* If pages is not defined then add pages of inherited type */
 ) & (T extends { pages : AnyZodObject } ? {} :
-  { pages : Array<Page<ZodInfer<U>>> }
+  { pages : Array<Page<PageBase<ZodInfer<U['metadata']>, U['computedFields']>>> }
 /* Add path variable */
 ) & { path : string };
 
 
 type UnionObjectValues<T> = T[keyof T];
 
-type _PagesTypeUnionRecursive<T extends Section, Filter extends Record<string, any>={}> = {
-  [key in keyof T] : T[key] extends Array<Page<infer U>> ?
-                      U extends Filter ?
-                        U : undefined
-                   : T[key] extends Page<infer U> ?
-                      U extends Filter ?
-                        U : undefined
+// type _PagesBaseUnionRecursive<T extends Section, Filter extends Obj={}> = {
+//   [key in keyof T] : T[key] extends Array<Page<PageBase<infer M, infer C>>> ?
+//                       M extends Filter ? PageBase<M, C> : undefined 
+//                    : T[key] extends Page<PageBase<infer M, infer C>> ?
+//                       M extends Filter ? PageBase<M, C> : undefined 
+//                    : T[key] extends Array<Section> ?
+//                       UnionObjectValues<_PagesBaseUnionRecursive<T[key][number], Filter>>
+//                    : T[key] extends Section ?
+//                       UnionObjectValues<_PagesBaseUnionRecursive<T[key], Filter>>
+//                    : never
+// };
+type _PagesTypeUnion<T extends Section> = {
+  [key in keyof T] : T[key] extends Array<Page<infer P>> ? P
+                   : T[key] extends Page<infer P> ? P
                    : T[key] extends Array<Section> ?
-                        UnionObjectValues<_PagesTypeUnionRecursive<T[key][number], Filter>>
+                      UnionObjectValues<_PagesTypeUnion<T[key][number]>>
                    : T[key] extends Section ?
-                        UnionObjectValues<_PagesTypeUnionRecursive<T[key], Filter>>
-                   : undefined                  
+                      UnionObjectValues<_PagesTypeUnion<T[key]>>
+                   : never;
 };
+export type PagesTypeUnionRecursive<T extends Section> = Page<UnionObjectValues<_PagesTypeUnion<T>>>; 
 
-export type PagesTypeUnionRecursive<T extends Section, Filter extends Record<string, any>={}> = Page<NonNullable<UnionObjectValues<_PagesTypeUnionRecursive<T, Filter>>>>;
+// export type PagesBaseUnionRecursive<T extends Section, Filter extends Obj={}> = 
+//       NonNullable<
+//         UnionObjectValues<
+//           _PagesBaseUnionRecursive<T, Filter>>>;
+// /* Unable to fix the error where wrapping this type with Page errors. */
+
+
+// export 
+//   type PagesTypeUnionRecursive<T extends Section, Filter extends Obj={}> 
+//   = PagesBaseUnionRecursive<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : never;
+
+
