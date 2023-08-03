@@ -20,19 +20,19 @@ export function isValidObject(schema : AnyZodObject, data : unknown) {
     }
 }
 
-/* Any is passed to section generic until i can figure out the correct way to do this. */
+/* Any is passed to section, and page generic until i can figure out the correct way to do this. */
 export function Map<T extends Section<any>, U extends unknown>(section : T, fn : (page : PagesTypeUnionRecursive<T>, i : number) => U) : Array<U>{
     const pages : U[] = [];
     const definedPages = Object.keys(section)
                             .filter(key => isPage(section[key]))
-                            .map(key => section[key]) as Page[];
+                            .map(key => section[key]) as Page<any>[];
 
     const definedSections = Object.keys(section)
                                     .filter(key => isSection(section[key]))
                                     .map(key => section[key]) as Section[];
     
     pages.push(...definedPages.map(fn));
-    pages.push(...section.pages.map(fn));                           
+    pages.push(...section.pages.map(fn));                  
     definedSections.concat(section.sections).forEach(section => {
         pages.push(...Map<Section, U>(section, fn));
     });
@@ -62,13 +62,13 @@ export function Filter<T extends Section<any>, F extends AnyZodObject>({ section
     const pages : PagesTypeUnionRecursiveWithFilter<T, z.infer<F>>[] = [];
     const definedPages = Object.keys(section)
                             .filter(key => isPage(section[key]))
-                            .map(key => section[key]) as Page[];
+                            .map(key => section[key]) as Page<any>[];
 
     const definedSections = Object.keys(section)
                                     .filter(key => isSection(section[key]))
                                     .map(key => section[key]) as Section[];
     
-    const outerFun = (page : Page, i : number) =>  {
+    const outerFun = (page : Page<any>, i : number) =>  {
         const first = filter ? isValidObject(filter, page.metadata) : true;
         if (!first) return false; /* more preference given to the filter. it will return early only when filter is defined, and not validated. */
         const second = fn ? fn(page, i) : true;

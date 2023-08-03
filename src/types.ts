@@ -11,10 +11,10 @@ export type PageContent<M extends Obj=Obj> = {
 
 export type PageBase<M extends Obj=Obj, C extends Obj | undefined = Obj | undefined> = {
   readonly metadata : M;
-  readonly computedFields ?: C;
+  readonly computedFields : C extends undefined ? never : C;
 }
 
-export type Page<T extends PageBase=any> = {
+export type Page<T extends PageBase=PageBase> = {
     readonly content : string;
     readonly path :  string;
     readonly source : string;
@@ -32,7 +32,7 @@ export type Section<T extends PageBase=PageBase> = {
   /* Something like this should be possible eventually. hopefully... */
 };
 
-export type Model<M extends AnyZodObject=AnyZodObject, C extends Obj=Obj> = {
+export type Model<M extends AnyZodObject=AnyZodObject, C extends Obj | undefined = undefined> = {
   readonly metadata : M;
   readonly computedFields ?: (page : Page) => C;
 };
@@ -106,7 +106,7 @@ export type PagesBaseUnionRecursiveWithFilter<T extends Section, Filter extends 
         _PagesBaseUnionRecursiveWithFilter<T, Filter>>>;
 
 export type PagesTypeUnionRecursiveWithFilter<T extends Section, Filter extends Obj> = 
-  PagesBaseUnionRecursiveWithFilter<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : never;
+  PagesBaseUnionRecursiveWithFilter<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : Page;
 
 type _PagesBaseUnionRecursive<T extends Section> = {
   [key in keyof T] : T[key] extends Array<Page<infer P>> ? P
