@@ -1,42 +1,40 @@
 import {AnyZodObject, z} from 'zod';
 
+export type ZodInfer<T extends AnyZodObject> = z.infer<T>;
 export type Obj = Record<string, any>;
 
-type ZodInfer<T extends AnyZodObject> = z.infer<T>;
+export type IsEmptyObject<Obj extends Record<PropertyKey, unknown>> =
+    [keyof Obj] extends [never] ? true : false
 
 export type PageContent<M extends Obj=Obj> = {
   readonly metadata : M;
   readonly content : string;
 }
 
-export type PageBase<M extends Obj=Obj, C extends Obj=Obj> = {
+export type Page<M extends Obj=Obj, C extends Obj={}> = {
+  readonly content : string;
+  readonly path :  string;
+  readonly source : string;
   readonly metadata : M;
-  readonly computedFields ?: C;
-  // readonly computedFields ?: C extends undefined ? never : C;
-}
+} & (
+ IsEmptyObject<C> extends true ? {} : { computedFields : C }
+);
 
-export type Page<T extends PageBase=PageBase> = {
-    readonly content : string;
-    readonly path :  string;
-    readonly source : string;
-} & T
-
-export type PageWithoutComputedFields<T extends Page=Page> = Omit<T, 'computedFields'>
-
-export type Section<T extends PageBase=PageBase> = {
+export type Section<M extends Obj=Obj, C extends Obj={}> = {
   readonly path : string;
-  readonly pages : Array<Page<T>>;
-  readonly sections : Array<Section<T>>;
-  [k : string] : Page<T> | Section<T> | Array<Page<T>> | Array<Section<T>> | string; 
+  readonly pages : Array<Page<M, C>>;
+  readonly sections : Array<Section<M, C>>;
+  [k : string] : Page | Section | Array<Page<M, C>> | Array<Section<M, C>> | string;
   /* The extra types other than Page and Section are here because typescript does not support negated types yet https://github.com/microsoft/TypeScript/issues/4196*/
   /* [k : string ~ ("pages" | "sections")] : Page | Section*/
   /* Something like this should be possible eventually. hopefully... */
+}
+
+export type Model<M extends AnyZodObject=AnyZodObject, C extends Obj={}> = {
+  readonly metadata : M;
+  readonly computedFields ?: (page : Page) => C;
 };
 
-export type Model<M extends AnyZodObject=AnyZodObject, C extends Obj=Obj> = {
-  readonly metadata : M;
-  readonly computedFields ?: (page : PageWithoutComputedFields) => C;
-};
 
 export type ModelTree<T extends Model=Model> = {
   pages ?: T;
@@ -48,16 +46,16 @@ export type TransformTree<T extends ModelTree, U extends Model=Model> = {
   [K in keyof T]: 
     T[K] extends Model<infer F, infer C> ?
       K extends 'pages' ? T[K] extends { computedFields : any } ? 
-                          Array<Page<PageBase<ZodInfer<F>, C>>>
-                        : Array<Page<PageBase<NonNullable<ZodInfer<F>>>>>
+                          Array<Page<ZodInfer<F>, C>>
+                        : Array<Page<NonNullable<ZodInfer<F>>>>
                         : undefined extends ZodInfer<F> ?
                           T[K] extends { computedFields : any } ?
-                          Page<PageBase<NonNullable<ZodInfer<F>>, C>> | undefined
-                        : Page<PageBase<NonNullable<ZodInfer<F>>>> | undefined
+                          Page<NonNullable<ZodInfer<F>>, C> | undefined
+                        : Page<NonNullable<ZodInfer<F>>> | undefined
                         
                         : T[K] extends { computedFields : any } ?
-                          Page<PageBase<ZodInfer<F>, C>>
-                        : Page<PageBase<ZodInfer<F>>>
+                          Page<ZodInfer<F>, C>
+                        : Page<ZodInfer<F>>
   
   : T[K] extends ModelTree ?
       T extends {pages : AnyZodObject} ?
@@ -71,9 +69,9 @@ export type TransformTree<T extends ModelTree, U extends Model=Model> = {
 }
 & (T extends { sections: ModelTree } ? {} : 
   { sections: T extends { pages : Model<infer M, infer C> } ? 
-      Array<Section<PageBase<ZodInfer<M>, C>>> 
+      Array<Section<ZodInfer<M>, C>> 
       : U extends Model<infer M, infer C> ?
-      Array<Section<PageBase<ZodInfer<M>, C>>> 
+      Array<Section<ZodInfer<M>, C>> 
     : never 
   }
 /* If pages is not defined then add pages of inherited type */
@@ -81,44 +79,19 @@ export type TransformTree<T extends ModelTree, U extends Model=Model> = {
   { 
     pages : 
       U extends Model<infer M, infer C> ?
-        Array<Page<PageBase<ZodInfer<M>, C>>>
+        Array<Page<ZodInfer<M>, C>>
       : never
   }
 /* Add path variable */
 ) & { path : string };
 
-type UnionObjectValues<T> = T[keyof T];
-
-type _PagesBaseUnionWithFilter<T extends Section, Filter extends Obj> = {
-  [key in keyof T] : T[key] extends Array<Page<infer P>> ?
-                      P['metadata'] extends Filter ? P : undefined 
-                   : T[key] extends Page<infer P> ?
-                      P['metadata'] extends Filter ? P : undefined 
+export type PagesTypeUnion<T extends Section> = {
+  [key in keyof T] : T[key] extends Array<Page<infer P, infer U>> ? Page<P, U>
+                   : T[key] extends Page<infer P, infer U> ? Page<P, U>
                    : T[key] extends Array<Section> ?
-                      UnionObjectValues<_PagesBaseUnionWithFilter<T[key][number], Filter>>
+                      PagesTypeUnion<T[key][number]>
                    : T[key] extends Section ?
-                      UnionObjectValues<_PagesBaseUnionWithFilter<T[key], Filter>>
-                   : never
-};
-
-export type PagesBaseUnionWithFilter<T extends Section, Filter extends Obj> = 
-    NonNullable<
-      UnionObjectValues<
-        _PagesBaseUnionWithFilter<T, Filter>>>;
-
-export type PagesTypeUnionWithFilter<T extends Section, Filter extends Obj> = 
-  PagesBaseUnionWithFilter<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : Page;
-
-type _PagesBaseUnion<T extends Section> = {
-  [key in keyof T] : T[key] extends Array<Page<infer P>> ? P
-                   : T[key] extends Page<infer P> ? P
-                   : T[key] extends Array<Section> ?
-                      UnionObjectValues<_PagesBaseUnion<T[key][number]>>
-                   : T[key] extends Section ?
-                      UnionObjectValues<_PagesBaseUnion<T[key]>>
+                      PagesTypeUnion<T[key]>
                    : never;
-};
+}[keyof T];
 
-export type PagesBaseUnion<T extends Section> = UnionObjectValues<_PagesBaseUnion<T>>;
-
-export type PagesTypeUnion<T extends Section> = Page<PagesBaseUnion<T>>; 

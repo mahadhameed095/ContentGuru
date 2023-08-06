@@ -5,6 +5,27 @@ import { join } from 'path';
 import { ZodValidatePageWithErrorMessage, isZodObject, trimFileExtension } from './utils.js';
 import { existsSync } from 'fs';
 
+
+type FilesAndFolders = {
+  files : string[];
+  folders : string[];
+}
+
+async function GetFilesAndFolders(inputDir : string) : Promise<FilesAndFolders>{
+  const dirents = await readdir(inputDir, {withFileTypes : true});
+  const result = dirents.reduce<FilesAndFolders>((acc, dirent) => {
+    dirent.isFile() && acc.files.push(dirent.name);
+    dirent.isDirectory() && acc.folders.push(dirent.name);
+    return acc;
+  }, 
+  { 
+    files : [],
+    folders : [] 
+  });
+  return result; 
+}
+
+
 export default async function MakeContent<T extends ModelTree, U extends Model>
 ({ inputDir, modelTree , build, rootPagesSchema } : {
   inputDir : string;
@@ -13,23 +34,19 @@ export default async function MakeContent<T extends ModelTree, U extends Model>
   rootPagesSchema ?: U;
 }) : Promise<TransformTree<T, U>>
 {
-  const structure : Section = { 
+  const section : Section = { 
     path : inputDir,
     pages : [] as Page[],
     sections : []
   };
-  const dirents = await readdir(inputDir, {withFileTypes : true});
-  const {files, directories} = dirents.reduce((acc, dirent) => {
-    dirent.isFile() && acc.files.push(dirent.name);
-    dirent.isDirectory() && acc.directories.push(dirent.name);
-    return acc;
-  }, { files : [] as string[], directories : [] as string[] });
+
+  const {files, folders} = await GetFilesAndFolders(inputDir);
   
   const schemaKeys = Object.keys(modelTree).filter(key => key !== 'sections' && key !== 'pages');
   const definedFilesInSchema = schemaKeys.filter(key => isZodObject(modelTree[key] as object));
   const definedFoldersInSchema = schemaKeys.filter(key => !definedFilesInSchema.includes(key));
   const notDefinedFiles = files.filter(file => !definedFilesInSchema.includes(trimFileExtension(file)));
-  const notDefinedFolders = directories.filter(folder => !definedFoldersInSchema.includes(folder));
+  const notDefinedFolders = folders.filter(folder => !definedFoldersInSchema.includes(folder));
   
   const pagesModel =  modelTree['pages'] || 
                       rootPagesSchema || 
@@ -43,17 +60,14 @@ export default async function MakeContent<T extends ModelTree, U extends Model>
         const data = await build(source);
         let page : Page = { ...data, source, path : fullPath};        
         const model = (modelTree[filename] as Model)
+        
         ZodValidatePageWithErrorMessage(model['metadata'], page)        
-        const computedFields = ( model.computedFields ? {
-          computedFields : model['computedFields']({ 
-            metadata : page.metadata,
-            source : page.source,
-            path : page.path,
-            content : page.content 
-          })
-        } : {});
+        
+        const computedFields = model.computedFields  ? 
+        { computedFields : model['computedFields'](page) } : {};
+
         page = {...page, ...computedFields};
-        structure[filename] = page;
+        section[filename] = page;
       }else if(!(modelTree[filename] as Model)['metadata'].isOptional()){ /* if file was required */
          throw `${fullPath} is not found yet required in schema!`;
       } /* do nothing if it was optional and not found*/
@@ -68,23 +82,18 @@ export default async function MakeContent<T extends ModelTree, U extends Model>
       let page : Page = { ...data, source, path : fullPath}; 
       ZodValidatePageWithErrorMessage(pagesModel['metadata'], page);
       
-      const computedFields = ( pagesModel.computedFields  ? {
-        computedFields : pagesModel['computedFields']({ 
-          metadata : page.metadata,
-          source : page.source,
-          path : page.path,
-          content : page.content 
-        })
-      }: {});
+      const computedFields = pagesModel.computedFields  ? 
+      { computedFields : pagesModel['computedFields'](page) } : {};
+
       page = {...page, ...computedFields};
-      structure['pages'].push(page);
+      section['pages'].push(page);
     })
   );
 
   await Promise.all(    
     definedFoldersInSchema.map(async folder => {
       const fullPath = join(inputDir, folder);
-      structure[folder] = await MakeContent({
+      section[folder] = await MakeContent({
         inputDir : fullPath,
         modelTree : modelTree[folder] as ModelTree,
         build,
@@ -96,14 +105,14 @@ export default async function MakeContent<T extends ModelTree, U extends Model>
   await Promise.all(
     notDefinedFolders.map(async folder => {
       const fullPath = join(inputDir, folder);
-      structure['sections'].push(await MakeContent({
+      section['sections'].push(await MakeContent({
         inputDir : fullPath,
         modelTree : modelTree['sections'] || { pages : pagesModel },
         build,
         rootPagesSchema : pagesModel
-      }) as Section);
+      }));
     })
   );
 
-  return structure as any;
+  return section as any;
 }
