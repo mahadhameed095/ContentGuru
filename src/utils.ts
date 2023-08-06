@@ -8,7 +8,7 @@ export const trimFileExtension = (filename : string) => {
 
 export const ZodValidatePageWithErrorMessage = (schema : AnyZodObject, page : Page) => {
     try{
-        schema.parse(page.frontmatter);
+        schema.parse(page.metadata);
       }
       catch(_error : unknown){
         let error = _error as ZodError;

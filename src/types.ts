@@ -1,6 +1,6 @@
 import {AnyZodObject, z} from 'zod';
 
-type Obj = Record<string, any>;
+export type Obj = Record<string, any>;
 
 type ZodInfer<T extends AnyZodObject> = z.infer<T>;
 
@@ -9,9 +9,10 @@ export type PageContent<M extends Obj=Obj> = {
   readonly content : string;
 }
 
-export type PageBase<M extends Obj=Obj, C extends Obj | undefined = Obj | undefined> = {
+export type PageBase<M extends Obj=Obj, C extends Obj=Obj> = {
   readonly metadata : M;
-  readonly computedFields : C extends undefined ? never : C;
+  readonly computedFields ?: C;
+  // readonly computedFields ?: C extends undefined ? never : C;
 }
 
 export type Page<T extends PageBase=PageBase> = {
@@ -32,9 +33,9 @@ export type Section<T extends PageBase=PageBase> = {
   /* Something like this should be possible eventually. hopefully... */
 };
 
-export type Model<M extends AnyZodObject=AnyZodObject, C extends Obj | undefined = undefined> = {
+export type Model<M extends AnyZodObject=AnyZodObject, C extends Obj=Obj> = {
   readonly metadata : M;
-  readonly computedFields ?: (page : Page) => C;
+  readonly computedFields ?: (page : PageWithoutComputedFields) => C;
 };
 
 export type ModelTree<T extends Model=Model> = {
@@ -88,36 +89,36 @@ export type TransformTree<T extends ModelTree, U extends Model=Model> = {
 
 type UnionObjectValues<T> = T[keyof T];
 
-type _PagesBaseUnionRecursiveWithFilter<T extends Section, Filter extends Obj> = {
+type _PagesBaseUnionWithFilter<T extends Section, Filter extends Obj> = {
   [key in keyof T] : T[key] extends Array<Page<infer P>> ?
                       P['metadata'] extends Filter ? P : undefined 
                    : T[key] extends Page<infer P> ?
                       P['metadata'] extends Filter ? P : undefined 
                    : T[key] extends Array<Section> ?
-                      UnionObjectValues<_PagesBaseUnionRecursiveWithFilter<T[key][number], Filter>>
+                      UnionObjectValues<_PagesBaseUnionWithFilter<T[key][number], Filter>>
                    : T[key] extends Section ?
-                      UnionObjectValues<_PagesBaseUnionRecursiveWithFilter<T[key], Filter>>
+                      UnionObjectValues<_PagesBaseUnionWithFilter<T[key], Filter>>
                    : never
 };
 
-export type PagesBaseUnionRecursiveWithFilter<T extends Section, Filter extends Obj> = 
+export type PagesBaseUnionWithFilter<T extends Section, Filter extends Obj> = 
     NonNullable<
       UnionObjectValues<
-        _PagesBaseUnionRecursiveWithFilter<T, Filter>>>;
+        _PagesBaseUnionWithFilter<T, Filter>>>;
 
-export type PagesTypeUnionRecursiveWithFilter<T extends Section, Filter extends Obj> = 
-  PagesBaseUnionRecursiveWithFilter<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : Page;
+export type PagesTypeUnionWithFilter<T extends Section, Filter extends Obj> = 
+  PagesBaseUnionWithFilter<T, Filter> extends PageBase<infer M, infer C> ? Page<PageBase<M, C>> : Page;
 
-type _PagesBaseUnionRecursive<T extends Section> = {
+type _PagesBaseUnion<T extends Section> = {
   [key in keyof T] : T[key] extends Array<Page<infer P>> ? P
                    : T[key] extends Page<infer P> ? P
                    : T[key] extends Array<Section> ?
-                      UnionObjectValues<_PagesBaseUnionRecursive<T[key][number]>>
+                      UnionObjectValues<_PagesBaseUnion<T[key][number]>>
                    : T[key] extends Section ?
-                      UnionObjectValues<_PagesBaseUnionRecursive<T[key]>>
+                      UnionObjectValues<_PagesBaseUnion<T[key]>>
                    : never;
 };
 
-export type PagesBaseUnionRecursive<T extends Section> = UnionObjectValues<_PagesBaseUnionRecursive<T>>;
+export type PagesBaseUnion<T extends Section> = UnionObjectValues<_PagesBaseUnion<T>>;
 
-export type PagesTypeUnionRecursive<T extends Section> = Page<PagesBaseUnionRecursive<T>>; 
+export type PagesTypeUnion<T extends Section> = Page<PagesBaseUnion<T>>; 
