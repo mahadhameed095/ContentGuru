@@ -3,30 +3,11 @@ import {
 } from "zod";
 import { 
     Section,
-    Page,
     PagesTypeUnion,
     PagesTypeUnionWithFilter,
     ZodInfer, 
 } from "./types.js";
-
-export function isPage(value : any) : value is Page {
-    if(!value || typeof value !== 'object') return false;
-    return 'metadata' in value; 
-}
-
-export function isSection(value : any) : value is Section<any>{
-    if(!value || typeof value !== 'object') return false;
-    return 'pages' in value;
-}
-
-export function isValidObject(schema : AnyZodObject, data : unknown) {
-    try{
-        schema.parse(data)
-        return true;
-    } catch {
-        return false;
-    }
-}
+import { isPage, isSection, isValidObject } from "./utils.js";
 
 /* Any is passed to section, and page generic until i can figure out the correct way to do this. */
 export function Map<T extends Section, U extends unknown>(section : T, fn : (page : PagesTypeUnion<T>, i : number) => U) : Array<U>{

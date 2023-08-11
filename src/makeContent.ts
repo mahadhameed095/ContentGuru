@@ -2,7 +2,7 @@ import { TransformTree, ModelTree, Model, Page, Section, PageContent } from './t
 import { z } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { ZodValidatePageWithErrorMessage, isZodObject, trimFileExtension } from './utils.js';
+import { ZodValidatePageWithErrorMessage, isModel, trimFileExtension } from './utils.js';
 import { existsSync } from 'fs';
 
 
@@ -43,7 +43,7 @@ export default async function MakeContent<T extends ModelTree, U extends Model>
   const {files, folders} = await GetFilesAndFolders(inputDir);
   
   const schemaKeys = Object.keys(modelTree).filter(key => key !== 'sections' && key !== 'pages');
-  const definedFilesInSchema = schemaKeys.filter(key => isZodObject(modelTree[key] as object));
+  const definedFilesInSchema = schemaKeys.filter(key => isModel(modelTree[key]));
   const definedFoldersInSchema = schemaKeys.filter(key => !definedFilesInSchema.includes(key));
   const notDefinedFiles = files.filter(file => !definedFilesInSchema.includes(trimFileExtension(file)));
   const notDefinedFolders = folders.filter(folder => !definedFoldersInSchema.includes(folder));

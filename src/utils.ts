@@ -1,5 +1,5 @@
 import { AnyZodObject, ZodError, ZodObject } from "zod";
-import { Page } from "./types.js";
+import { Model, Page, Section } from "./types.js";
 
 export const trimFileExtension = (filename : string) => {
     const lastIndexOfPeriod = filename.lastIndexOf('.');
@@ -17,7 +17,26 @@ export const ZodValidatePageWithErrorMessage = (schema : AnyZodObject, page : Pa
       }
 }
 
-export const isZodObject = (schemaObject : object) : schemaObject is ZodObject<any> =>  {
-  return schemaObject instanceof ZodObject;
-  // return schemaObject.constructor.name === "ZodObject";
+export function isPage(value : any) : value is Page {
+  if(!value || typeof value !== 'object') return false;
+  return 'metadata' in value && 'source' in value;
+}
+
+export function isSection(value : any) : value is Section{
+  if(!value || typeof value !== 'object') return false;
+  return 'pages' in value;
+}
+
+export function isValidObject(schema : AnyZodObject, data : unknown) {
+  try{
+      schema.parse(data)
+      return true;
+  } catch {
+      return false;
+  }
+}
+
+export function isModel(value : any) : value is Model{
+  if(!value || typeof value !== 'object') return false;
+  return 'metadata' in value && value['metadata'] instanceof ZodObject;
 }

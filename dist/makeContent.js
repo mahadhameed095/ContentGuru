@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { ZodValidatePageWithErrorMessage, isZodObject, trimFileExtension } from './utils.js';
+import { ZodValidatePageWithErrorMessage, isModel, trimFileExtension } from './utils.js';
 import { existsSync } from 'fs';
 async function GetFilesAndFolders(inputDir) {
     const dirents = await readdir(inputDir, { withFileTypes: true });
@@ -23,7 +23,7 @@ export default async function MakeContent({ inputDir, modelTree, build, rootPage
     };
     const { files, folders } = await GetFilesAndFolders(inputDir);
     const schemaKeys = Object.keys(modelTree).filter(key => key !== 'sections' && key !== 'pages');
-    const definedFilesInSchema = schemaKeys.filter(key => isZodObject(modelTree[key]));
+    const definedFilesInSchema = schemaKeys.filter(key => isModel(modelTree[key]));
     const definedFoldersInSchema = schemaKeys.filter(key => !definedFilesInSchema.includes(key));
     const notDefinedFiles = files.filter(file => !definedFilesInSchema.includes(trimFileExtension(file)));
     const notDefinedFolders = folders.filter(folder => !definedFoldersInSchema.includes(folder));
