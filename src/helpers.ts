@@ -2,8 +2,11 @@ import {
     AnyZodObject, 
 } from "zod";
 import { 
-    Page, 
-    Section, 
+    Section,
+    Page,
+    PagesTypeUnion,
+    PagesTypeUnionWithFilter,
+    ZodInfer, 
 } from "./types.js";
 
 export function isPage(value : any) : value is Page {
@@ -26,53 +29,64 @@ export function isValidObject(schema : AnyZodObject, data : unknown) {
 }
 
 /* Any is passed to section, and page generic until i can figure out the correct way to do this. */
-export function Map<T extends Section, U extends unknown>(section : T, fn : (page : Page, i : number) => U) : Array<U>{
+export function Map<T extends Section, U extends unknown>(section : T, fn : (page : PagesTypeUnion<T>, i : number) => U) : Array<U>{
     const pages : U[] = [];
     const definedPages = Object.keys(section)
                             .filter(key => isPage(section[key]))
-                            .map(key => section[key]) as Page<any>[];
+                            .map(key => section[key]) as any[];
 
     const definedSections = Object.keys(section)
                                     .filter(key => isSection(section[key]))
-                                    .map(key => section[key]) as Section[];
+                                    .map(key => section[key]) as any[];
+
     pages.push(...definedPages.map(fn));
-    pages.push(...section.pages.map(fn));                  
-    definedSections.concat(section.sections).forEach(section => {
-        pages.push(...Map<Section, U>(section, fn));
+    pages.push(...(section.pages as any[]).map(fn));
+
+    definedSections.forEach(section => {
+        pages.push(...Map(section, fn));
     });
+
+    section.sections.forEach(section => {
+        pages.push(...Map(section as any, fn));
+    });
+
     return pages;
 }
 
-export function ForEach<T extends Section>(section : T, fn : (Page : Page, i : number) => any){
+export function ForEach<T extends Section>(section : T, fn : (Page : PagesTypeUnion<T>, i : number) => any){
     const definedPages = Object.keys(section)
                             .filter(key => isPage(section[key]))
-                            .map(key => section[key]) as Page[];
+                            .map(key => section[key]) as any[];
                             
     const definedSections = Object.keys(section)
                                     .filter(key => isSection(section[key]))
-                                    .map(key => section[key]) as Section[];
-    section.pages.concat(definedPages).forEach(fn);
-    
-    definedSections.concat(section.sections).forEach(section => {
-        ForEach<Section>(section, fn);
+                                    .map(key => section[key]) as any[];
+    (section.pages as any[]).forEach(fn);
+    definedPages.forEach(fn);
+    definedSections.forEach(section => {
+        ForEach<Section>(section, fn as any);
+    });
+    section.sections.forEach(section => {
+        ForEach<Section>(section, fn as any);
     });
 }
 
-export function Filter<T extends Section<any>, F extends AnyZodObject>({ section, filter, fn } : {
+export function Filter<T extends Section, F extends AnyZodObject>({ section, filter, fn } : {
     section : T;
     filter ?: F;
-    fn ?: (Page :Page, i : number) => boolean;
-}) : Array<Page> {
-    const pages : Array<Page> = [];
+    fn ?: (Page :PagesTypeUnionWithFilter<T, ZodInfer<F>>, i : number) => boolean;
+}) : Array<PagesTypeUnionWithFilter<T, ZodInfer<F>>> {
+
+    const pages : any[] = [];
     const definedPages = Object.keys(section)
                             .filter(key => isPage(section[key]))
-                            .map(key => section[key]) as Page<any>[];
+                            .map(key => section[key]) as any[];
 
     const definedSections = Object.keys(section)
                                     .filter(key => isSection(section[key]))
-                                    .map(key => section[key]) as Section[];
+                                    .map(key => section[key]) as any[];
     
-    const outerFun = (page : Page, i : number) =>  {
+    const outerFun = (page : any, i : number) =>  {
         const first = filter ? isValidObject(filter, page.metadata) : true;
         if (!first) return false; /* more preference given to the filter. it will return early only when filter is defined, and not validated. */
         const second = fn ? fn(page, i) : true;
@@ -85,6 +99,5 @@ export function Filter<T extends Section<any>, F extends AnyZodObject>({ section
     definedSections.concat(section.sections).forEach(section => {
         pages.push(...Filter<Section<any>, F>({section, filter, fn}));
     });
-
     return pages;
 }

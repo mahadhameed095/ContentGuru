@@ -13,8 +13,10 @@ export type Page<M extends Obj = Obj, C extends Obj = {}> = {
     readonly path: string;
     readonly source: string;
     readonly metadata: M;
-} & (IsEmptyObject<C> extends true ? {} : {
-    computedFields: C;
+} & (IsEmptyObject<C> extends true ? {
+    readonly computedFields?: Obj;
+} : {
+    readonly computedFields: C;
 });
 export type Section<M extends Obj = Obj, C extends Obj = {}> = {
     readonly path: string;
@@ -34,7 +36,7 @@ export type ModelTree<T extends Model = Model> = {
 export type TransformTree<T extends ModelTree, U extends Model = Model> = {
     [K in keyof T]: T[K] extends Model<infer F, infer C> ? K extends 'pages' ? T[K] extends {
         computedFields: any;
-    } ? Array<Page<ZodInfer<F>, C>> : Array<Page<NonNullable<ZodInfer<F>>>> : undefined extends ZodInfer<F> ? T[K] extends {
+    } ? Array<Page<NonNullable<ZodInfer<F>>, C>> : Array<Page<NonNullable<ZodInfer<F>>>> : undefined extends ZodInfer<F> ? T[K] extends {
         computedFields: any;
     } ? Page<NonNullable<ZodInfer<F>>, C> | undefined : Page<NonNullable<ZodInfer<F>>> | undefined : T[K] extends {
         computedFields: any;
@@ -47,14 +49,23 @@ export type TransformTree<T extends ModelTree, U extends Model = Model> = {
     sections: T extends {
         pages: Model<infer M, infer C>;
     } ? Array<Section<ZodInfer<M>, C>> : U extends Model<infer M, infer C> ? Array<Section<ZodInfer<M>, C>> : never;
-}) & (T extends {
-    pages: AnyZodObject;
-} ? {} : {
-    pages: U extends Model<infer M, infer C> ? Array<Page<ZodInfer<M>, C>> : never;
 }) & {
     path: string;
-};
-export type PagesTypeUnion<T extends Section> = {
-    [key in keyof T]: T[key] extends Array<Page<infer P, infer U>> ? Page<P, U> : T[key] extends Page<infer P, infer U> ? Page<P, U> : T[key] extends Array<Section> ? PagesTypeUnion<T[key][number]> : T[key] extends Section ? PagesTypeUnion<T[key]> : never;
+} & (T extends {
+    pages: Model;
+} ? {} : {
+    pages: U extends Model<infer M, infer C> ? Array<Page<ZodInfer<M>, C>> : never;
+});
+type PagesBaseUnion<T extends Section> = {
+    [key in keyof T]: T[key] extends Array<Page<infer M, infer C>> ? [M, C] : T[key] extends Page<infer M, infer C> ? [M, C] : T[key] extends Array<Section> ? PagesBaseUnion<T[key][number]> : T[key] extends Section ? PagesBaseUnion<T[key]> : never;
 }[keyof T];
+type PagesBaseUnionWithFilter<T extends Section, F extends Obj> = {
+    [key in keyof T]: T[key] extends Array<Page<infer M, infer C>> ? M extends F ? [M, C] : undefined : T[key] extends Page<infer M, infer C> ? M extends F ? [M, C] : undefined : T[key] extends Array<Section> ? PagesBaseUnion<T[key][number]> : T[key] extends Section ? PagesBaseUnion<T[key]> : never;
+}[keyof T];
+export type PageTypeCreator<T extends [Obj, Obj]> = Page<T[0], T[1]>;
+export type SectionTypeCreator<T extends [Obj, Obj]> = Section<T[0], T[1]>;
+export type PagesTypeUnion<T extends Section> = PageTypeCreator<PagesBaseUnion<T>>;
+export type SectionTypeUnion<T extends Section> = SectionTypeCreator<PagesBaseUnion<T>>;
+export type PagesTypeUnionWithFilter<T extends Section, F extends Obj> = NonNullable<PagesBaseUnionWithFilter<T, F>> extends infer R ? R extends [Obj, Obj] ? PageTypeCreator<R> : never : never;
+export {};
 //# sourceMappingURL=types.d.ts.map

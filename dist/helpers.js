@@ -28,7 +28,10 @@ export function Map(section, fn) {
         .map(key => section[key]);
     pages.push(...definedPages.map(fn));
     pages.push(...section.pages.map(fn));
-    definedSections.concat(section.sections).forEach(section => {
+    definedSections.forEach(section => {
+        pages.push(...Map(section, fn));
+    });
+    section.sections.forEach(section => {
         pages.push(...Map(section, fn));
     });
     return pages;
@@ -40,8 +43,12 @@ export function ForEach(section, fn) {
     const definedSections = Object.keys(section)
         .filter(key => isSection(section[key]))
         .map(key => section[key]);
-    section.pages.concat(definedPages).forEach(fn);
-    definedSections.concat(section.sections).forEach(section => {
+    section.pages.forEach(fn);
+    definedPages.forEach(fn);
+    definedSections.forEach(section => {
+        ForEach(section, fn);
+    });
+    section.sections.forEach(section => {
         ForEach(section, fn);
     });
 }
