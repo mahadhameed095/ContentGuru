@@ -100,15 +100,15 @@ type PagesBaseUnion<T extends Section> = {
                    : never;
 }[keyof T];
 
-type PagesBaseUnionWithFilter<T extends Section, F extends Obj> = {
+export type PagesBaseUnionWithFilter<T extends Section, F extends Obj> = {
   [key in keyof T] : T[key] extends Array<Page<infer M, infer C>> ?
                       M extends F ? [M, C] : undefined
                    : T[key] extends Page<infer M, infer C> ?
                       M extends F ? [M, C] : undefined
                    : T[key] extends Array<Section> ?
-                      PagesBaseUnion<T[key][number]>
+                      PagesBaseUnionWithFilter<T[key][number], F>
                    : T[key] extends Section ?
-                      PagesBaseUnion<T[key]>
+                      PagesBaseUnionWithFilter<T[key], F>
                    : never;
 }[keyof T];
 

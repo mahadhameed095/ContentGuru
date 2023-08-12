@@ -59,8 +59,8 @@ export type TransformTree<T extends ModelTree, U extends Model = Model> = {
 type PagesBaseUnion<T extends Section> = {
     [key in keyof T]: T[key] extends Array<Page<infer M, infer C>> ? [M, C] : T[key] extends Page<infer M, infer C> ? [M, C] : T[key] extends Array<Section> ? PagesBaseUnion<T[key][number]> : T[key] extends Section ? PagesBaseUnion<T[key]> : never;
 }[keyof T];
-type PagesBaseUnionWithFilter<T extends Section, F extends Obj> = {
-    [key in keyof T]: T[key] extends Array<Page<infer M, infer C>> ? M extends F ? [M, C] : undefined : T[key] extends Page<infer M, infer C> ? M extends F ? [M, C] : undefined : T[key] extends Array<Section> ? PagesBaseUnion<T[key][number]> : T[key] extends Section ? PagesBaseUnion<T[key]> : never;
+export type PagesBaseUnionWithFilter<T extends Section, F extends Obj> = {
+    [key in keyof T]: T[key] extends Array<Page<infer M, infer C>> ? M extends F ? [M, C] : undefined : T[key] extends Page<infer M, infer C> ? M extends F ? [M, C] : undefined : T[key] extends Array<Section> ? PagesBaseUnionWithFilter<T[key][number], F> : T[key] extends Section ? PagesBaseUnionWithFilter<T[key], F> : never;
 }[keyof T];
 export type PageTypeCreator<T extends [Obj, Obj]> = Page<T[0], T[1]>;
 export type SectionTypeCreator<T extends [Obj, Obj]> = Section<T[0], T[1]>;
