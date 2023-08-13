@@ -2,7 +2,7 @@ import { TransformTree, ModelTree, Model, Page, Section, PageContent } from './t
 import { z } from 'zod';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { ZodValidatePageWithErrorMessage, isModel, trimFileExtension } from './utils.js';
+import { ZodParsePageMetadataWithErrorMessage, isModel, trimFileExtension } from './utils.js';
 import { existsSync } from 'fs';
 
 
@@ -54,39 +54,37 @@ export default async function MakeContent<T extends ModelTree, U extends Model>
 
   await Promise.all(
     definedFilesInSchema.map(async filename => {
-      const fullPath = join(inputDir, filename + '.mdx');
-      if(existsSync(fullPath)){
-        const source = await readFile(fullPath, 'utf-8');
+      const path = join(inputDir, filename + '.mdx');
+      if(existsSync(path)){
+        const source = await readFile(path, 'utf-8');
         const data = await build(source);
-        let page : Page = { ...data, source, path : fullPath};        
+        let page = { ...data, source, path };        
         const model = (modelTree[filename] as Model)
         
-        ZodValidatePageWithErrorMessage(model['metadata'], page)        
-        
+        page.metadata = ZodParsePageMetadataWithErrorMessage(model['metadata'], page.path, page.metadata);        
         const computedFields = model.computedFields  ? 
         { computedFields : model['computedFields'](page) } : {};
-
-        page = {...page, ...computedFields};
-        section[filename] = page;
+        section[filename] = {...page, ...computedFields};
+      
       }else if(!(modelTree[filename] as Model)['metadata'].isOptional()){ /* if file was required */
-         throw `${fullPath} is not found yet required in schema!`;
+         throw `${path} is not found yet required in schema!`;
       } /* do nothing if it was optional and not found*/
     })
   );
 
   await Promise.all(
     notDefinedFiles.map(async filename => {
-      const fullPath = join(inputDir, filename);
-      const source = await readFile(fullPath, 'utf-8');
-      const data = await build(source);
-      let page : Page = { ...data, source, path : fullPath}; 
-      ZodValidatePageWithErrorMessage(pagesModel['metadata'], page);
-      
+      const path = join(inputDir, filename);
+      const source = await readFile(path, 'utf-8');
+      const data = await build(source); 
+      const page = {...data, source, path};
+      page.metadata = ZodParsePageMetadataWithErrorMessage(pagesModel['metadata'], page.path, page.metadata);
       const computedFields = pagesModel.computedFields  ? 
       { computedFields : pagesModel['computedFields'](page) } : {};
-
-      page = {...page, ...computedFields};
-      section['pages'].push(page);
+      section['pages'].push({
+        ...computedFields,
+        ...page
+      });
     })
   );
 

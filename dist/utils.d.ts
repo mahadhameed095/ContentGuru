@@ -1,7 +1,9 @@
 import { AnyZodObject } from "zod";
-import { Model, Page, Section } from "./types.js";
+import { Model, Obj, Page, Section } from "./types.js";
 export declare const trimFileExtension: (filename: string) => string;
-export declare const ZodValidatePageWithErrorMessage: (schema: AnyZodObject, page: Page) => void;
+export declare const ZodParsePageMetadataWithErrorMessage: (schema: AnyZodObject, pagePath: string, pageMetadata: Obj) => {
+    [x: string]: any;
+};
 export declare function isPage(value: any): value is Page;
 export declare function isSection(value: any): value is Section;
 export declare function isValidObject(schema: AnyZodObject, data: unknown): boolean;
